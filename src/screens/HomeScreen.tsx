@@ -2280,6 +2280,7 @@ export function HomeScreen({
         onOpenPlan={(plan) => setSelectedPlan(plan as Plan)}
         onClose={() => navigateToTab("map")}
       >
+        {() => <>
         <SafeAreaView
           edges={[]}
           style={{ paddingTop: tabTopInset }}
@@ -2642,6 +2643,7 @@ export function HomeScreen({
             )}
           </View>
         </SafeAreaView>
+        </>}
       </FriendsScreen>
       <Modal
         visible={isFriendProfileLoading || Boolean(selectedFriendProfile)}

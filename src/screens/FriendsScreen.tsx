@@ -1,6 +1,5 @@
 import { CalendarDays, Check, ChevronRight, UserPlus, UsersRound, X } from "lucide-react-native";
 import { useState } from "react";
-import { ReactNode } from "react";
 import { Animated, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { User } from "../data/mockData";
@@ -25,7 +24,7 @@ type Props = {
   onOpenFriend: (friend: User) => void;
   onOpenPlan: (plan: Plan) => void;
   onClose: () => void;
-  children?: ReactNode;
+  children?: unknown;
 };
 
 const initials = (name: string) => name.trim().slice(0, 1).toUpperCase();
