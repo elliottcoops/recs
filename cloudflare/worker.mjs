@@ -33,6 +33,42 @@ async function friendIds(env, userId) {
   return new Set(rows.map((row) => row.requester_id === userId ? row.recipient_id : row.requester_id));
 }
 async function canView(env, spot, userId) { return spot.user_id === userId || (spot.visibility === "friends" && (await friendIds(env, userId)).has(spot.user_id)); }
+function isInVisibleMapArea(spot, latitude, longitude, latitudeDelta, longitudeDelta) {
+  if (![latitude, longitude, latitudeDelta, longitudeDelta].every(Number.isFinite)) return true;
+  const latitudeRadius = Math.max(latitudeDelta / 2, 0.002);
+  const longitudeRadius = Math.max(longitudeDelta / 2, 0.002);
+  const latitudeDistance = (Number(spot.latitude) - latitude) / latitudeRadius;
+  const longitudeDistance = (Number(spot.longitude) - longitude) / longitudeRadius;
+  return latitudeDistance ** 2 + longitudeDistance ** 2 <= 1.15;
+}
+function makeClusters(spots, latitudeDelta, longitudeDelta) {
+  const cellSize = Math.max(Math.max(latitudeDelta, longitudeDelta) / 5, 0.01);
+  const groups = new Map();
+  for (const spot of spots) {
+    const key = `${Math.floor(Number(spot.latitude) / cellSize)}:${Math.floor(Number(spot.longitude) / cellSize)}`;
+    groups.set(key, [...(groups.get(key) ?? []), spot]);
+  }
+  return [...groups.entries()].map(([key, members]) => {
+    if (members.length === 1) return members[0];
+    return {
+      id: `cluster-${key}`,
+      name: `${members.length} recommendations`,
+      category: "Other",
+      latitude: members.reduce((total, spot) => total + Number(spot.latitude), 0) / members.length,
+      longitude: members.reduce((total, spot) => total + Number(spot.longitude), 0) / members.length,
+      address: "",
+      rating: 0,
+      personalRating: 0,
+      description: "",
+      note: "",
+      visibility: "friends",
+      pinnedBy: "",
+      ownerType: "current-user",
+      isCluster: true,
+      clusterCount: members.length,
+    };
+  });
+}
 async function photosFor() { return []; }
 async function shapeSpot(env, spot) {
   const owner = await first(env.DB.prepare("SELECT * FROM users WHERE id=?").bind(spot.user_id));
@@ -77,10 +113,14 @@ export default {
       if (request.method === "POST" && path === "/api/places/search") { const { query } = await body(request); if (String(query ?? "").trim().length < 3) return json({ error: "Enter at least three characters." },400); return json(await googleSearch(env, query.trim())); }
       if (path === "/api/uploads" || path.startsWith("/api/files/")) return json({ error: "Photo uploads are not enabled in this hosted preview." }, 501);
       if (request.method === "GET" && path === "/api/spots") {
-        const mode=url.searchParams.get("mode") ?? "mine", filters=(url.searchParams.get("filters") ?? "").split(",").filter(Boolean), latitude=Number(url.searchParams.get("latitude")), longitude=Number(url.searchParams.get("longitude")); const friends=await friendIds(env,user.id);
+        const mode=url.searchParams.get("mode") ?? "mine", filters=(url.searchParams.get("filters") ?? "").split(",").filter(Boolean), latitude=Number(url.searchParams.get("latitude")), longitude=Number(url.searchParams.get("longitude")), latitudeDelta=Number(url.searchParams.get("latitudeDelta")), longitudeDelta=Number(url.searchParams.get("longitudeDelta")), wantsClusters=url.searchParams.get("cluster")==="1"; const friends=await friendIds(env,user.id);
         const rows=await all(env.DB.prepare(mode==="friends" ? "SELECT * FROM spots WHERE visibility='friends'" : "SELECT * FROM spots WHERE user_id=?").bind(...(mode==="friends"?[]:[user.id])));
-        const filtered=rows.filter((spot)=>mode==="friends"?friends.has(spot.user_id):true).filter((spot)=>!filters.length||filters.includes(spot.category)).sort((a,b)=>Number.isFinite(latitude)?(a.latitude-latitude)**2+(a.longitude-longitude)**2-((b.latitude-latitude)**2+(b.longitude-longitude)**2):0).slice(0,15);
-        return json(await Promise.all(filtered.map((spot)=>shapeSpot(env,spot))));
+        const filtered=rows.filter((spot)=>mode==="friends"?friends.has(spot.user_id):true).filter((spot)=>!filters.length||filters.includes(spot.category)).filter((spot)=>isInVisibleMapArea(spot,latitude,longitude,latitudeDelta,longitudeDelta)).sort((a,b)=>Number.isFinite(latitude)?(a.latitude-latitude)**2+(a.longitude-longitude)**2-((b.latitude-latitude)**2+(b.longitude-longitude)**2):0);
+        if (wantsClusters) {
+          const clusters=makeClusters(filtered,latitudeDelta,longitudeDelta);
+          return json(await Promise.all(clusters.map((spot)=>spot.isCluster?spot:shapeSpot(env,spot))));
+        }
+        return json(await Promise.all(filtered.slice(0,60).map((spot)=>shapeSpot(env,spot))));
       }
       if (request.method === "POST" && path === "/api/spots") {
         const { place, category, personalRating, description="", photoUris=[], visibility="private" }=await body(request);
@@ -99,7 +139,7 @@ export default {
       if(request.method==="GET"&&path==="/api/friends"){const rows=await all(env.DB.prepare("SELECT f.*,u.id,u.email,u.username,u.name,u.photo_uri FROM friendships f JOIN users u ON u.id=CASE WHEN f.requester_id=? THEN f.recipient_id ELSE f.requester_id END WHERE f.requester_id=? OR f.recipient_id=?").bind(user.id,user.id,user.id));return json({friends:rows.filter(r=>r.status==="accepted").map(publicUser),incoming:rows.filter(r=>r.status==="pending"&&r.recipient_id===user.id).map(r=>({id:r.id,user:publicUser(r)})),outgoing:rows.filter(r=>r.status==="pending"&&r.requester_id===user.id).map(r=>({id:r.id,user:publicUser(r)}))});}
       if(request.method==="POST"&&path==="/api/friends/requests"){const {username}=await body(request);const name=String(username??"").trim().toLowerCase().replace(/^@/,"");const recipient=await first(env.DB.prepare("SELECT * FROM users WHERE username=?").bind(name));if(!recipient)return json({error:"No Recs account has that username."},404);if(recipient.id===user.id)return json({error:"You cannot add yourself."},400);const existing=await first(env.DB.prepare("SELECT id FROM friendships WHERE (requester_id=? AND recipient_id=?) OR (requester_id=? AND recipient_id=?)").bind(user.id,recipient.id,recipient.id,user.id));if(existing)return json({error:"A friend request or friendship already exists."},409);const requestId=id();await env.DB.prepare("INSERT INTO friendships (id,requester_id,recipient_id,status,created_at) VALUES (?,?,?,?,?)").bind(requestId,user.id,recipient.id,"pending",now()).run();return json({id:requestId},201);}
       const acceptId=path.match(/^\/api\/friends\/requests\/([^/]+)\/accept$/)?.[1];
-      if(request.method==="POST"&&acceptId){const result=await env.DB.prepare("UPDATE friendships SET status='accepted' WHERE id=? AND recipient_id=? AND status='pending'").bind(acceptId,user.id).run();return result.meta.changes?json({id:acceptId,status:"accepted"}):json({error:"Friend request not found."},404);}
+      if(request.method==="POST"&&acceptId){const friendship=await first(env.DB.prepare("SELECT * FROM friendships WHERE id=?").bind(acceptId));if(!friendship)return json({error:"Friend request not found."},404);if(friendship.recipient_id!==user.id)return json({error:"Only the invited person can accept this request."},403);if(friendship.status==="pending")await env.DB.prepare("UPDATE friendships SET status='accepted' WHERE id=?").bind(acceptId).run();return json({id:acceptId,status:"accepted"});}
       const profileId=path.match(/^\/api\/friends\/([^/]+)\/profile$/)?.[1];
       if(request.method==="GET"&&profileId){const friend=await first(env.DB.prepare("SELECT * FROM users WHERE id=?").bind(decodeURIComponent(profileId)));if(!friend||!(await friendIds(env,user.id)).has(friend.id))return json({error:"Friend not found."},404);const rows=await all(env.DB.prepare("SELECT * FROM spots WHERE user_id=? AND visibility='friends' ORDER BY created_at DESC LIMIT 6").bind(friend.id));return json({user:publicUser(friend),locationCount:rows.length,friendCount:(await friendIds(env,friend.id)).size,spots:await Promise.all(rows.map(s=>shapeSpot(env,s)))});}
       if(request.method==="PATCH"&&path==="/api/me"){const {photoUri}=await body(request);if(photoUri)return json({error:"Photo uploads are not enabled in this hosted preview."},400);await env.DB.prepare("UPDATE users SET photo_uri=NULL WHERE id=?").bind(user.id).run();return json(publicUser({...user,photo_uri:null}));}
