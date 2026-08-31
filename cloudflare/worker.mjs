@@ -134,6 +134,7 @@ export default {
         return json(await shapeSpot(env,spot),201);
       }
       const spotId = path.match(/^\/api\/spots\/([^/]+)$/)?.[1];
+      if (request.method==="PATCH" && spotId) { const spot=await first(env.DB.prepare("SELECT * FROM spots WHERE id=?").bind(decodeURIComponent(spotId))); if(!spot||spot.user_id!==user.id)return json({error:"Only the person who pinned this place can change its sharing."},404); const {visibility}=await body(request); if(!["private","friends"].includes(visibility))return json({error:"Choose who can see this recommendation."},400); await env.DB.prepare("UPDATE spots SET visibility=? WHERE id=?").bind(visibility,spot.id).run(); return json(await shapeSpot(env,{...spot,visibility})); }
       if (request.method==="DELETE" && spotId) { const spot=await first(env.DB.prepare("SELECT * FROM spots WHERE id=?").bind(decodeURIComponent(spotId))); if(!spot||spot.user_id!==user.id)return json({error:"Only the person who pinned this place can delete it."},404); await env.DB.prepare("DELETE FROM spots WHERE id=?").bind(spot.id).run(); return empty(); }
       if (request.method==="GET" && path==="/api/saved") { const rows=await all(env.DB.prepare("SELECT s.* FROM saved_places p JOIN spots s ON s.id=p.spot_id WHERE p.user_id=? ORDER BY p.created_at DESC").bind(user.id)); return json(await Promise.all((await Promise.all(rows.map(async spot=>(await canView(env,spot,user.id))?spot:null))).filter(Boolean).map(spot=>shapeSpot(env,spot)))); }
       const savedId=path.match(/^\/api\/saved\/([^/]+)$/)?.[1];

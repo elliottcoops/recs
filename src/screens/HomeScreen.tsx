@@ -253,6 +253,7 @@ export function HomeScreen({
   const [feedbackRating, setFeedbackRating] = useState<number | null>(null);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [isUpdatingSharing, setIsUpdatingSharing] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<AppTab>("map");
   const tabFade = useRef(new Animated.Value(1)).current;
@@ -514,6 +515,33 @@ export function HomeScreen({
       );
     } finally {
       setIsSubmittingFeedback(false);
+    }
+  };
+
+  const updateSpotVisibility = async (nextVisibility: Visibility) => {
+    if (!API_BASE_URL || !selectedSpot || selectedSpot.visibility === nextVisibility) return;
+    setIsUpdatingSharing(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/spots/${encodeURIComponent(selectedSpot.id)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.token}`,
+          },
+          body: JSON.stringify({ visibility: nextVisibility }),
+        },
+      );
+      const body = (await response.json()) as Spot & { error?: string };
+      if (!response.ok) throw new Error(body.error ?? "Could not update sharing.");
+      setSelectedSpot(body);
+      setSpots((current) => current.map((spot) => (spot.id === body.id ? body : spot)));
+      setSavedSpots((current) => current.map((spot) => (spot.id === body.id ? body : spot)));
+    } catch (reason) {
+      Alert.alert("Could not update sharing", reason instanceof Error ? reason.message : "Please try again.");
+    } finally {
+      setIsUpdatingSharing(false);
     }
   };
 
@@ -1388,6 +1416,23 @@ export function HomeScreen({
                   {selectedSpot.description || "No note added yet."}
                 </Text>
               </View>
+              {selectedSpot.userId === session.user.id && (
+                <View className="mt-3 rounded-2xl border border-teal-100 bg-teal-50 p-3">
+                  <View className="flex-row items-center justify-between">
+                    <View>
+                      <Text className="font-extrabold text-teal-900">Sharing</Text>
+                      <Text className="mt-0.5 text-xs text-teal-700">Choose who can see this recommendation.</Text>
+                    </View>
+                    <Text className="text-xs font-bold text-teal-700">{selectedSpot.visibility === "friends" ? "Friends" : "Only me"}</Text>
+                  </View>
+                  <View className="mt-3 flex-row rounded-xl bg-white p-1">
+                    {(["private", "friends"] as Visibility[]).map((option) => {
+                      const selected = selectedSpot.visibility === option;
+                      return <Pressable key={option} disabled={isUpdatingSharing} onPress={() => void updateSpotVisibility(option)} className={`flex-1 rounded-lg py-2.5 ${selected ? "bg-teal-700" : ""}`}><Text className={`text-center text-xs font-extrabold ${selected ? "text-white" : "text-slate-600"}`}>{option === "private" ? "Only me" : "Friends"}</Text></Pressable>;
+                    })}
+                  </View>
+                </View>
+              )}
               <View className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 p-4">
                 <View className="flex-row items-center justify-between">
                   <Text className="text-xs font-extrabold uppercase tracking-wide text-amber-800">
