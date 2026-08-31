@@ -42,10 +42,13 @@ function isInVisibleMapArea(spot, latitude, longitude, latitudeDelta, longitudeD
   return latitudeDistance ** 2 + longitudeDistance ** 2 <= 1.15;
 }
 function makeClusters(spots, latitudeDelta, longitudeDelta) {
-  const cellSize = Math.max(Math.max(latitudeDelta, longitudeDelta) / 5, 0.01);
+  // Keep markers comfortably tappable: about seven columns by ten rows at most.
+  // Cells shrink with the map, so a cluster naturally separates as the user zooms in.
+  const latitudeCellSize = Math.max(latitudeDelta / 10, 0.00012);
+  const longitudeCellSize = Math.max(longitudeDelta / 7, 0.00012);
   const groups = new Map();
   for (const spot of spots) {
-    const key = `${Math.floor(Number(spot.latitude) / cellSize)}:${Math.floor(Number(spot.longitude) / cellSize)}`;
+    const key = `${Math.floor(Number(spot.latitude) / latitudeCellSize)}:${Math.floor(Number(spot.longitude) / longitudeCellSize)}`;
     groups.set(key, [...(groups.get(key) ?? []), spot]);
   }
   return [...groups.entries()].map(([key, members]) => {

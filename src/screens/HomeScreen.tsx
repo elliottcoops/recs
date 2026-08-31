@@ -18,8 +18,6 @@ type FriendProfile = { user: User; locationCount: number; friendCount: number; s
 type MapMode = "mine" | "friends";
 
 const INITIAL_REGION: Region = { latitude: 51.5248, longitude: -0.0808, latitudeDelta: 0.055, longitudeDelta: 0.055 };
-const CLUSTER_ENTER_DELTA = 0.12;
-const CLUSTER_EXIT_DELTA = 0.085;
 const cleanMapStyle = [
   { featureType: "poi.business", stylers: [{ visibility: "off" }] },
   { featureType: "poi.attraction", stylers: [{ visibility: "off" }] },
@@ -77,7 +75,6 @@ export function HomeScreen({ session, onSignOut }: { session: { token: string; u
   const [isTopBarCollapsed, setIsTopBarCollapsed] = useState(false);
   const headerTouchStartY = useRef<number | null>(null);
   const [region, setRegion] = useState<Region>(INITIAL_REGION);
-  const [isClusterMode, setIsClusterMode] = useState(false);
   const spotRequestRef = useRef<AbortController | null>(null);
   const spotRequestVersion = useRef(0);
   const lastSettledRegion = useRef<Region>(INITIAL_REGION);
@@ -143,7 +140,7 @@ export function HomeScreen({ session, onSignOut }: { session: { token: string; u
     const controller = new AbortController();
     spotRequestRef.current = controller;
     const requestVersion = ++spotRequestVersion.current;
-    const query = new URLSearchParams({ mode, latitude: String(nextRegion.latitude), longitude: String(nextRegion.longitude), latitudeDelta: String(nextRegion.latitudeDelta), longitudeDelta: String(nextRegion.longitudeDelta), cluster: isClusterMode ? "1" : "0", filters: mapFilters.join(",") });
+    const query = new URLSearchParams({ mode, latitude: String(nextRegion.latitude), longitude: String(nextRegion.longitude), latitudeDelta: String(nextRegion.latitudeDelta), longitudeDelta: String(nextRegion.longitudeDelta), cluster: "1", filters: mapFilters.join(",") });
     try {
       const response = await fetch(`${API_BASE_URL}/api/spots?${query}`, { headers: { Authorization: `Bearer ${session.token}` }, signal: controller.signal });
       if (!response.ok || requestVersion !== spotRequestVersion.current) return;
@@ -151,7 +148,7 @@ export function HomeScreen({ session, onSignOut }: { session: { token: string; u
       const nextSpots = saved.map((spot) => ({ ...spot, category: categoryColors[spot.category as Category] ? spot.category as Category : "Other", personalRating: Math.min(5, spot.personalRating ?? 4), description: spot.description ?? spot.note ?? "", photoUri: spot.photoUri ?? null, communityRating: spot.communityRating ?? null, communityRatingCount: spot.communityRatingCount ?? 0, comments: spot.comments ?? [] }));
       setSpots((current) => current.length === nextSpots.length && current.every((spot, index) => spot.id === nextSpots[index]?.id && spot.clusterCount === nextSpots[index]?.clusterCount && spot.latitude === nextSpots[index]?.latitude && spot.longitude === nextSpots[index]?.longitude) ? current : nextSpots);
     } catch (reason) { if ((reason as Error).name !== "AbortError") { /* Keep the last responsive marker set while the request retries. */ } }
-  }, [isClusterMode, mapFilters, session.token]);
+  }, [mapFilters, session.token]);
 
   useEffect(() => {
     if (!canShowMapPins) return;
@@ -223,7 +220,7 @@ export function HomeScreen({ session, onSignOut }: { session: { token: string; u
 
   const zoomIntoCluster = useCallback((cluster: Spot) => {
     const currentRegion = lastSettledRegion.current;
-    mapRef.current?.animateToRegion({ latitude: cluster.latitude, longitude: cluster.longitude, latitudeDelta: Math.max(currentRegion.latitudeDelta * 0.55, 0.014), longitudeDelta: Math.max(currentRegion.longitudeDelta * 0.55, 0.014) }, 280);
+    mapRef.current?.animateToRegion({ latitude: cluster.latitude, longitude: cluster.longitude, latitudeDelta: Math.max(currentRegion.latitudeDelta * 0.42, 0.0015), longitudeDelta: Math.max(currentRegion.longitudeDelta * 0.42, 0.0015) }, 320);
   }, []);
 
   const handleMapMovement = useCallback((nextRegion: Region) => {
@@ -243,8 +240,6 @@ export function HomeScreen({ session, onSignOut }: { session: { token: string; u
       lastSettledRegion.current = nextRegion;
       setRegion(nextRegion);
     }
-    const mapSpan = Math.max(nextRegion.latitudeDelta, nextRegion.longitudeDelta);
-    setIsClusterMode((current) => current ? mapSpan > CLUSTER_EXIT_DELTA : mapSpan > CLUSTER_ENTER_DELTA);
   }, []);
 
   const searchPlaces = async () => {
