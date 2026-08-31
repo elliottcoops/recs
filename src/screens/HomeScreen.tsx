@@ -2263,24 +2263,7 @@ export function HomeScreen({
         </View>
       </Modal>
 
-      <FriendsScreen
-        active={activeTab === "friends"}
-        opacity={tabFade}
-        topInset={tabTopInset}
-        friends={friends}
-        incomingRequests={incomingRequests}
-        plans={upcomingPlans}
-        userId={session.user.id}
-        friendUsername={friendUsername}
-        friendError={friendError}
-        onFriendUsernameChange={setFriendUsername}
-        onSendFriendRequest={sendFriendRequest}
-        onAcceptFriendRequest={acceptFriendRequest}
-        onOpenFriend={(friend) => { void openFriendProfile(friend); }}
-        onOpenPlan={(plan) => setSelectedPlan(plan as Plan)}
-        onClose={() => navigateToTab("map")}
-      >
-        {() => <>
+      <FriendsScreen active={activeTab === "friends"} opacity={tabFade}>
         <SafeAreaView
           edges={[]}
           style={{ paddingTop: tabTopInset }}
@@ -2643,7 +2626,6 @@ export function HomeScreen({
             )}
           </View>
         </SafeAreaView>
-        </>}
       </FriendsScreen>
       <Modal
         visible={isFriendProfileLoading || Boolean(selectedFriendProfile)}
@@ -2931,7 +2913,7 @@ export function HomeScreen({
         </SafeAreaView>
       </ProfileScreen>
       <Modal
-        visible={Boolean(selectedPlan)}
+        visible={Boolean(selectedPlan) && activeTab !== "friends"}
         animationType="fade"
         transparent
         onRequestClose={() => setSelectedPlan(null)}
