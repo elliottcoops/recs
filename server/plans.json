@@ -1,0 +1,15 @@
+[
+  {
+    "id": "31730322-6325-43d9-828a-832735fcb12a",
+    "spotId": "place-ChIJyzYL_6YcdkgRGOGGER5JCJ4",
+    "hostId": "283f831f-2cf2-4352-a108-fc137a5f03b0",
+    "scheduledAt": "2026-08-29T17:39:35.693Z",
+    "invites": [
+      {
+        "userId": "7e30f884-d112-4a47-a339-b408ced8301e",
+        "status": "accepted"
+      }
+    ],
+    "createdAt": "2026-08-29T16:39:40.069Z"
+  }
+]
