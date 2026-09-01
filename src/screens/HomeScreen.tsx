@@ -1347,6 +1347,10 @@ export function HomeScreen({
     }
     void openDirections(spot, preferences.directionsApp);
   };
+  const navItemSurface = (tab: AppTab) =>
+    activeTab === tab
+      ? { backgroundColor: isDark ? "#153E3C" : "#DFF1EE" }
+      : undefined;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -1932,14 +1936,8 @@ export function HomeScreen({
             onPress={() => navigateToTab("map")}
             className="items-center pb-1"
           >
-            <MapIcon
-              color={activeTab === "map" ? "#0F766E" : "#64748B"}
-              size={21}
-              fill={activeTab === "map" ? "#CCFBF1" : "none"}
-            />
-            <Text style={isDark ? { color: colors.text } : undefined}
-              className={`mt-1 text-[10px] font-extrabold ${activeTab === "map" ? "text-teal-700" : "text-slate-500"}`}
-            >
+            <View style={navItemSurface("map")} className="h-8 w-10 items-center justify-center rounded-xl"><MapIcon color={activeTab === "map" ? "#0F766E" : colors.muted} size={21} /></View>
+            <Text style={{ color: activeTab === "map" ? "#0F766E" : colors.muted }} className="mt-1 text-[10px] font-extrabold">
               MAP
             </Text>
           </Pressable>
@@ -1947,9 +1945,9 @@ export function HomeScreen({
             onPress={() => navigateToTab("friends")}
             className="items-center pb-1"
           >
-            <View>
+            <View style={navItemSurface("friends")} className="h-8 w-10 items-center justify-center rounded-xl">
               <UsersRound
-                color={activeTab === "friends" ? "#0F766E" : "#64748B"}
+                color={activeTab === "friends" ? "#0F766E" : colors.muted}
                 size={21}
               />
               {incomingRequests.length > 0 && (
@@ -1960,7 +1958,7 @@ export function HomeScreen({
                 </View>
               )}
             </View>
-            <Text style={isDark ? { color: colors.text } : undefined} className="mt-1 text-[10px] font-bold text-slate-500">
+            <Text style={{ color: activeTab === "friends" ? "#0F766E" : colors.muted }} className="mt-1 text-[10px] font-extrabold">
               FRIENDS
             </Text>
           </Pressable>
@@ -1972,8 +1970,8 @@ export function HomeScreen({
               setVisibility(preferences.defaultVisibility);
               setIsAddOpen(true);
             }}
-            style={styles.navAdd}
-            className="h-14 w-14 items-center justify-center rounded-full border-4 border-white bg-teal-700 shadow-lg"
+            style={[styles.navAdd, { borderColor: colors.background }]}
+            className="h-14 w-14 items-center justify-center rounded-full border-4 bg-teal-700 shadow-lg"
           >
             <Plus color="white" size={27} strokeWidth={3} />
             <Text style={styles.addLabel}>ADD</Text>
@@ -1982,11 +1980,8 @@ export function HomeScreen({
             onPress={() => navigateToTab("saved")}
             className="items-center pb-1"
           >
-            <Bookmark
-              color={activeTab === "saved" ? "#0F766E" : "#64748B"}
-              size={21}
-            />
-            <Text style={isDark ? { color: colors.text } : undefined} className="mt-1 text-[10px] font-bold text-slate-500">
+            <View style={navItemSurface("saved")} className="h-8 w-10 items-center justify-center rounded-xl"><Bookmark color={activeTab === "saved" ? "#0F766E" : colors.muted} size={21} /></View>
+            <Text style={{ color: activeTab === "saved" ? "#0F766E" : colors.muted }} className="mt-1 text-[10px] font-extrabold">
               SAVED
             </Text>
           </Pressable>
@@ -1995,11 +1990,8 @@ export function HomeScreen({
             accessibilityLabel="Open Discover"
             className="items-center pb-1"
           >
-            <Compass
-              color={activeTab === "discover" ? "#0F766E" : "#64748B"}
-              size={21}
-            />
-            <Text style={isDark ? { color: colors.text } : undefined} className="mt-1 text-[10px] font-bold text-slate-500">
+            <View style={navItemSurface("discover")} className="h-8 w-10 items-center justify-center rounded-xl"><Compass color={activeTab === "discover" ? "#0F766E" : colors.muted} size={21} /></View>
+            <Text style={{ color: activeTab === "discover" ? "#0F766E" : colors.muted }} className="mt-1 text-[10px] font-extrabold">
               DISCOVER
             </Text>
           </Pressable>
