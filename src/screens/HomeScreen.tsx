@@ -72,6 +72,7 @@ import {
 } from "react-native-safe-area-context";
 import { Category, Spot, User, Visibility } from "../data/mockData";
 import { FriendsScreen } from "./FriendsScreen";
+import { DiscoverScreen } from "./DiscoverScreen";
 import { MapScreen } from "./MapScreen";
 import { ProfileScreen } from "./ProfileScreen";
 import { SavedScreen } from "./SavedScreen";
@@ -208,7 +209,7 @@ const popularCategories: Category[] = [
   "Live Music",
 ];
 type MapFilter = Category;
-type AppTab = "map" | "friends" | "saved" | "profile";
+type AppTab = "map" | "friends" | "saved" | "profile" | "discover";
 const calendarKey = (date: Date | string) => {
   const value = new Date(date);
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
@@ -296,7 +297,6 @@ export function HomeScreen({
   const [isFriendFeedbackOpen, setIsFriendFeedbackOpen] = useState(false);
   const [isUpdatingSharing, setIsUpdatingSharing] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isDiscoverOpen, setIsDiscoverOpen] = useState(false);
   const [discoverIndex, setDiscoverIndex] = useState(0);
   const [discoverSpots, setDiscoverSpots] = useState<Spot[]>([]);
   const [isDiscoverLoading, setIsDiscoverLoading] = useState(false);
@@ -490,8 +490,7 @@ export function HomeScreen({
     radiusMiles = discoverRadiusMiles,
   ) => {
     setDiscoverIndex(0);
-    setIsDiscoverDistancePickerOpen(false);
-    setIsDiscoverOpen(true);
+    navigateToTab("discover");
     if (!API_BASE_URL) return;
     setIsDiscoverLoading(true);
     const origin = userLocation ?? region;
@@ -1985,12 +1984,12 @@ export function HomeScreen({
             </Text>
           </Pressable>
           <Pressable
-            onPress={() => { navigateToTab("map"); requestAnimationFrame(() => void openDiscover()); }}
+            onPress={() => void openDiscover()}
             accessibilityLabel="Open Discover"
             className="items-center pb-1"
           >
             <Compass
-              color={isDiscoverOpen ? "#0F766E" : "#64748B"}
+              color={activeTab === "discover" ? "#0F766E" : "#64748B"}
               size={21}
             />
             <Text style={isDark ? { color: colors.text } : undefined} className="mt-1 text-[10px] font-bold text-slate-500">
@@ -2000,16 +1999,11 @@ export function HomeScreen({
         </View>
       </SafeAreaView>
 
-      <Modal
-        visible={isDiscoverOpen}
-        animationType="slide"
-        onRequestClose={() => setIsDiscoverOpen(false)}
-      >
-        <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <DiscoverScreen active={activeTab === "discover"} opacity={tabFade}>
           <SafeAreaView edges={[]} style={{ paddingTop: tabTopInset, backgroundColor: colors.background }} className="flex-1">
             <View className="flex-row items-center justify-between px-5 pb-2 pt-5">
               <View><Text style={{ color: colors.text }} className="text-2xl font-extrabold">Discover</Text><Text style={{ color: colors.muted }} className="mt-0.5 text-sm">{userLocation ? "Near your location" : "Using this part of the map"}</Text></View>
-              <Pressable onPress={() => setIsDiscoverOpen(false)} style={{ backgroundColor: colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-full"><X color={colors.icon} size={22} /></Pressable>
+              <Pressable onPress={() => navigateToTab("map")} style={{ backgroundColor: colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-full"><X color={colors.icon} size={22} /></Pressable>
             </View>
             <View className="px-5 pb-2 pt-1">
               <View className="flex-row items-center">
@@ -2018,7 +2012,7 @@ export function HomeScreen({
                 </View>
                 <Pressable onPress={() => setIsDiscoverDistancePickerOpen((current) => !current)} style={{ backgroundColor: colors.surfaceMuted }} className="ml-2 flex-row items-center rounded-xl px-3 py-2"><Text style={{ color: "#0F766E" }} className="text-xs font-extrabold">{discoverRadiusMiles} mi</Text><ChevronDown color="#0F766E" size={14} style={{ marginLeft: 3, transform: [{ rotate: isDiscoverDistancePickerOpen ? "180deg" : "0deg" }] }} /></Pressable>
               </View>
-              {isDiscoverDistancePickerOpen && <View style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl px-3 pb-2 pt-3"><View className="flex-row items-center justify-between"><Text style={{ color: colors.muted }} className="text-xs font-bold">Show places up to</Text><Text style={{ color: "#0F766E" }} className="text-sm font-extrabold">{discoverRadiusMiles} {discoverRadiusMiles === 1 ? "mile" : "miles"}</Text></View><View className="mt-1 flex-row items-center"><Text style={{ color: colors.muted }} className="mr-1 text-[10px] font-semibold">1</Text><Slider value={discoverRadiusMiles} minimumValue={1} maximumValue={25} step={1} minimumTrackTintColor="#0F766E" maximumTrackTintColor={colors.border} thumbTintColor="#0F766E" onValueChange={(value) => setDiscoverRadiusMiles(Math.round(value))} onSlidingComplete={(value) => { const miles = Math.round(value); setDiscoverRadiusMiles(miles); setIsDiscoverDistancePickerOpen(false); void openDiscover(discoverAudience, miles); }} style={{ flex: 1, height: 28 }} accessibilityLabel="Maximum Discover distance" /><Text style={{ color: colors.muted }} className="ml-1 text-[10px] font-semibold">25</Text></View></View>}
+              {isDiscoverDistancePickerOpen && <View style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl px-3 pb-2 pt-3"><View className="flex-row items-center justify-between"><Text style={{ color: colors.muted }} className="text-xs font-bold">Show places up to</Text><Text style={{ color: "#0F766E" }} className="text-sm font-extrabold">{discoverRadiusMiles} {discoverRadiusMiles === 1 ? "mile" : "miles"}</Text></View><View className="mt-1 flex-row items-center"><Text style={{ color: colors.muted }} className="mr-1 text-[10px] font-semibold">1</Text><Slider value={discoverRadiusMiles} minimumValue={1} maximumValue={25} step={1} minimumTrackTintColor="#0F766E" maximumTrackTintColor={colors.border} thumbTintColor="#0F766E" onValueChange={(value) => setDiscoverRadiusMiles(Math.round(value))} onSlidingComplete={(value) => { const miles = Math.round(value); setDiscoverRadiusMiles(miles); void openDiscover(discoverAudience, miles); }} style={{ flex: 1, height: 28 }} accessibilityLabel="Maximum Discover distance" /><Text style={{ color: colors.muted }} className="ml-1 text-[10px] font-semibold">25</Text></View></View>}
             </View>
             {isDiscoverLoading ? (
               <View className="flex-1 items-center justify-center"><ActivityIndicator color="#0F766E" size="large" /><Text style={{ color: colors.muted }} className="mt-4 font-bold">Finding your next picks…</Text></View>
@@ -2035,7 +2029,7 @@ export function HomeScreen({
                         <View className="flex-row items-start justify-between"><View className="mr-3 flex-1"><Text style={{ color: colors.text }} numberOfLines={2} className="text-2xl font-extrabold leading-7">{spot.name}</Text><Text style={{ color: categoryColors[spot.category] }} className="mt-2 text-sm font-extrabold">{spot.category} · {spot.personalRating}/5</Text></View><Pressable onPress={() => toggleSaved(spot)} style={{ backgroundColor: savedSpots.some((saved) => saved.id === spot.id) ? "#FBBF24" : colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-2xl"><Bookmark color={savedSpots.some((saved) => saved.id === spot.id) ? "white" : "#0F766E"} size={21} fill={savedSpots.some((saved) => saved.id === spot.id) ? "white" : "transparent"} /></Pressable></View>
                         <Text style={{ color: colors.muted }} numberOfLines={2} className="mt-3 text-sm leading-5">{spot.description || spot.note || spot.address}</Text>
                         <View className="mt-4 flex-1"><View className="flex-row items-center justify-between"><Text style={{ color: colors.muted }} className="text-xs font-bold">{discoverAudience === "public" ? "FROM THE COMMUNITY" : "FROM THE CIRCLE"}</Text><Text style={{ color: categoryColors[spot.category] }} className="text-xs font-extrabold">{spot.communityRatingCount ? `${spot.communityRating?.toFixed(1)}/5 from ${discoverAudience === "public" ? "the community" : "friends"}` : "New recommendation"}</Text></View>{spot.comments?.filter((comment) => comment.comment.trim()).slice(0, 2).map((comment) => <View key={comment.id} style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl p-3"><View className="flex-row items-center justify-between"><Text style={{ color: colors.text }} className="font-extrabold">@{comment.user.username}</Text><Text style={{ color: "#D97706" }} className="text-xs font-extrabold">★ {comment.rating}/5</Text></View><Text style={{ color: colors.muted }} numberOfLines={2} className="mt-1 text-sm leading-5">“{comment.comment}”</Text></View>) ?? null}{!spot.comments?.some((comment) => comment.comment.trim()) && <View style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl p-3"><Text style={{ color: colors.text }} className="font-bold">{spot.pinnedBy || (discoverAudience === "public" ? "Someone nearby" : "Someone in your circle")} recommends this</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm">Open it on the map to add your own rating or comment.</Text></View>}</View>
-                        <View className="mt-4"><Text style={{ color: colors.muted }} className="mb-2 text-center text-xs font-bold">{index < discoverableSpots.length - 1 ? "Swipe up for the next pick" : "You’ve seen every nearby pick"}</Text><View className="flex-row gap-2"><Pressable onPress={() => getDirections(spot)} className="flex-1 rounded-2xl bg-slate-900 py-3.5"><Text className="text-center font-extrabold text-white">Directions</Text></Pressable><Pressable onPress={() => { setIsDiscoverOpen(false); navigateToTab("map"); requestAnimationFrame(() => openSpot(spot)); }} className="flex-1 rounded-2xl bg-teal-700 py-3.5"><Text className="text-center font-extrabold text-white">See on map</Text></Pressable></View>{index < discoverableSpots.length - 1 ? <Pressable onPress={() => { const next = index + 1; discoverPagerRef.current?.scrollTo({ y: next * discoverPageHeight, animated: true }); setDiscoverIndex(next); }} style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl py-3"><Text style={{ color: colors.text }} className="text-center text-sm font-extrabold">Next pick</Text></Pressable> : null}</View>
+                        <View className="mt-4"><Text style={{ color: colors.muted }} className="mb-2 text-center text-xs font-bold">{index < discoverableSpots.length - 1 ? "Swipe up for the next pick" : "You’ve seen every nearby pick"}</Text><View className="flex-row gap-2"><Pressable onPress={() => getDirections(spot)} className="flex-1 rounded-2xl bg-slate-900 py-3.5"><Text className="text-center font-extrabold text-white">Directions</Text></Pressable><Pressable onPress={() => { navigateToTab("map"); requestAnimationFrame(() => openSpot(spot)); }} className="flex-1 rounded-2xl bg-teal-700 py-3.5"><Text className="text-center font-extrabold text-white">See on map</Text></Pressable></View>{index < discoverableSpots.length - 1 ? <Pressable onPress={() => { const next = index + 1; discoverPagerRef.current?.scrollTo({ y: next * discoverPageHeight, animated: true }); setDiscoverIndex(next); }} style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl py-3"><Text style={{ color: colors.text }} className="text-center text-sm font-extrabold">Next pick</Text></Pressable> : null}</View>
                       </View>
                     </View>
                   </View>
@@ -2045,8 +2039,7 @@ export function HomeScreen({
               <View className="flex-1 items-center justify-center px-8"><View style={{ backgroundColor: colors.surfaceMuted }} className="h-16 w-16 items-center justify-center rounded-3xl"><MapPin color="#0F766E" size={30} /></View><Text style={{ color: colors.text }} className="mt-5 text-xl font-extrabold">No picks here yet</Text><Text style={{ color: colors.muted }} className="mt-2 text-center leading-5">Move the map to a busier area, then open Discover again.</Text></View>
             )}
           </SafeAreaView>
-        </View>
-      </Modal>
+      </DiscoverScreen>
       <Modal
         visible={isAddOpen}
         animationType="fade"

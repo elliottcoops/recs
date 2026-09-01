@@ -4,9 +4,10 @@ import { FriendsScreen } from "./FriendsScreen";
 import { MapScreen } from "./MapScreen";
 import { ProfileScreen } from "./ProfileScreen";
 import { SavedScreen } from "./SavedScreen";
+import { DiscoverScreen } from "./DiscoverScreen";
 import { ThemeProvider } from "../theme";
 
-const cases = [[MapScreen, "map"], [FriendsScreen, "friends"], [SavedScreen, "saved"], [ProfileScreen, "settings"]] as const;
+const cases = [[MapScreen, "map"], [FriendsScreen, "friends"], [SavedScreen, "saved"], [ProfileScreen, "settings"], [DiscoverScreen, "discover"]] as const;
 
 describe("screen wrappers", () => {
   it.each(cases)("renders %s content when active", (Screen) => {
