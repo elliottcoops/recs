@@ -390,7 +390,9 @@ export function HomeScreen({
     0,
   );
   const discoverableSpots = discoverSpots.length ? discoverSpots : spots.filter((spot) => !spot.isCluster);
-  const discoverPageHeight = viewportHeight - 112;
+  // Leave a deliberate visual gap below the feed card; it should feel like a
+  // focused, full-screen pick without touching the phone's bottom edge.
+  const discoverPageHeight = viewportHeight - 148;
   const filteredSavedSpots = savedSpots
     .filter(
       (spot) => savedCategory === "All" || spot.category === savedCategory,
