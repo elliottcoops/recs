@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   password_hash TEXT NOT NULL,
   photo_uri TEXT,
+  friend_request_policy TEXT NOT NULL DEFAULT 'everyone' CHECK (friend_request_policy IN ('everyone', 'mutuals', 'nobody')),
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS sessions (
@@ -47,6 +48,13 @@ CREATE TABLE IF NOT EXISTS friendships (
   status TEXT NOT NULL CHECK (status IN ('pending', 'accepted')),
   created_at TEXT NOT NULL,
   UNIQUE(requester_id, recipient_id)
+);
+CREATE TABLE IF NOT EXISTS user_blocks (
+  blocker_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  blocked_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (blocker_id, blocked_id),
+  CHECK (blocker_id <> blocked_id)
 );
 CREATE TABLE IF NOT EXISTS saved_places (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
