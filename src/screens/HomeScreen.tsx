@@ -390,9 +390,7 @@ export function HomeScreen({
     0,
   );
   const discoverableSpots = discoverSpots.length ? discoverSpots : spots.filter((spot) => !spot.isCluster);
-  // Leave a deliberate visual gap below the feed card; it should feel like a
-  // focused, full-screen pick without touching the phone's bottom edge.
-  const discoverPageHeight = viewportHeight - 148;
+  const discoverPageHeight = viewportHeight - 112;
   const filteredSavedSpots = savedSpots
     .filter(
       (spot) => savedCategory === "All" || spot.category === savedCategory,
@@ -2008,7 +2006,7 @@ export function HomeScreen({
             ) : discoverableSpots.length ? (
               <ScrollView ref={discoverPagerRef} pagingEnabled snapToInterval={discoverPageHeight} disableIntervalMomentum decelerationRate="fast" showsVerticalScrollIndicator={false} snapToAlignment="start" onMomentumScrollEnd={(event) => setDiscoverIndex(Math.round(event.nativeEvent.contentOffset.y / discoverPageHeight))}>
                 {discoverableSpots.map((spot, index) => (
-                  <View key={spot.id} style={{ height: discoverPageHeight }} className="px-5 pb-4">
+                  <View key={spot.id} style={{ height: discoverPageHeight }} className="px-5 pb-10">
                     <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="flex-1 overflow-hidden rounded-[32px] border shadow-lg">
                       <View style={{ backgroundColor: `${categoryColors[spot.category]}33` }} className="h-[42%] items-center justify-center">
                         {spot.photoUri ? <NativeImage source={{ uri: spot.photoUri }} style={styles.discoverPhoto} /> : <View style={{ backgroundColor: categoryColors[spot.category] }} className="h-20 w-20 items-center justify-center rounded-3xl shadow-lg">{categoryIcon(spot.category, "white", 36)}</View>}
