@@ -297,6 +297,8 @@ export function HomeScreen({
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isDiscoverOpen, setIsDiscoverOpen] = useState(false);
   const [discoverIndex, setDiscoverIndex] = useState(0);
+  const [discoverSpots, setDiscoverSpots] = useState<Spot[]>([]);
+  const [isDiscoverLoading, setIsDiscoverLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<AppTab>("map");
   const tabFade = useRef(new Animated.Value(1)).current;
   const [isPasswordOpen, setIsPasswordOpen] = useState(false);
@@ -386,7 +388,7 @@ export function HomeScreen({
     (total, spot) => total + (spot.clusterCount ?? 1),
     0,
   );
-  const discoverableSpots = spots.filter((spot) => !spot.isCluster);
+  const discoverableSpots = discoverSpots.length ? discoverSpots : spots.filter((spot) => !spot.isCluster);
   const discoverPageHeight = viewportHeight - 112;
   const filteredSavedSpots = savedSpots
     .filter(
@@ -476,6 +478,22 @@ export function HomeScreen({
     },
     [mapFilters, session.token],
   );
+
+  const openDiscover = async () => {
+    setDiscoverIndex(0);
+    setIsDiscoverOpen(true);
+    if (!API_BASE_URL) return;
+    setIsDiscoverLoading(true);
+    const params = new URLSearchParams({ mode: mapMode, latitude: String(region.latitude), longitude: String(region.longitude), latitudeDelta: String(region.latitudeDelta), longitudeDelta: String(region.longitudeDelta), cluster: "0", filters: mapFilters.join(",") });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/spots?${params}`, { headers: { Authorization: `Bearer ${session.token}` } });
+      if (!response.ok) return;
+      const data: Spot[] = await response.json();
+      setDiscoverSpots(data.map((spot) => ({ ...spot, category: categoryColors[spot.category as Category] ? spot.category as Category : "Other", personalRating: Math.min(5, spot.personalRating ?? 4), description: spot.description ?? spot.note ?? "", photoUri: spot.photoUri ?? null, communityRating: spot.communityRating ?? null, communityRatingCount: spot.communityRatingCount ?? 0, comments: spot.comments ?? [] })));
+    } finally {
+      setIsDiscoverLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!canShowMapPins) return;
@@ -1430,7 +1448,7 @@ export function HomeScreen({
                     </Pressable>
                   ))}
                 </View>
-                <Pressable onPress={() => { setDiscoverIndex(0); setIsDiscoverOpen(true); }} className="mt-3 flex-row items-center justify-between rounded-2xl bg-teal-700 px-4 py-3">
+                <Pressable onPress={() => void openDiscover()} className="mt-3 flex-row items-center justify-between rounded-2xl bg-teal-700 px-4 py-3">
                   <View><Text className="font-extrabold text-white">Discover picks</Text><Text className="mt-0.5 text-xs font-semibold text-teal-100">Swipe through places around this map</Text></View>
                   <ChevronDown color="white" size={20} style={{ transform: [{ rotate: "-90deg" }] }} />
                 </Pressable>
@@ -1956,19 +1974,21 @@ export function HomeScreen({
               <View><Text style={{ color: colors.text }} className="text-2xl font-extrabold">Discover</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm">Places from this part of the map</Text></View>
               <Pressable onPress={() => setIsDiscoverOpen(false)} style={{ backgroundColor: colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-full"><X color={colors.icon} size={22} /></Pressable>
             </View>
-            {discoverableSpots.length ? (
+            {isDiscoverLoading ? (
+              <View className="flex-1 items-center justify-center"><ActivityIndicator color="#0F766E" size="large" /><Text style={{ color: colors.muted }} className="mt-4 font-bold">Finding your next picks…</Text></View>
+            ) : discoverableSpots.length ? (
               <ScrollView ref={discoverPagerRef} pagingEnabled snapToInterval={discoverPageHeight} disableIntervalMomentum decelerationRate="fast" showsVerticalScrollIndicator={false} snapToAlignment="start" onMomentumScrollEnd={(event) => setDiscoverIndex(Math.round(event.nativeEvent.contentOffset.y / discoverPageHeight))}>
                 {discoverableSpots.map((spot, index) => (
                   <View key={spot.id} style={{ height: discoverPageHeight }} className="px-5 pb-4">
-                    <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="overflow-hidden rounded-[32px] border shadow-lg">
-                      <View style={{ backgroundColor: `${categoryColors[spot.category]}33` }} className="h-72 items-center justify-center">
+                    <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="flex-1 overflow-hidden rounded-[32px] border shadow-lg">
+                      <View style={{ backgroundColor: `${categoryColors[spot.category]}33` }} className="h-[42%] items-center justify-center">
                         {spot.photoUri ? <NativeImage source={{ uri: spot.photoUri }} style={styles.discoverPhoto} /> : <View style={{ backgroundColor: categoryColors[spot.category] }} className="h-20 w-20 items-center justify-center rounded-3xl shadow-lg">{categoryIcon(spot.category, "white", 36)}</View>}
                         <View style={{ backgroundColor: "rgba(15, 23, 42, 0.72)" }} className="absolute left-4 top-4 rounded-full px-3 py-1.5"><Text className="text-xs font-extrabold text-white">{index + 1} of {discoverableSpots.length}</Text></View>
                       </View>
-                      <View className="p-5">
+                      <View className="flex-1 p-5">
                         <View className="flex-row items-start justify-between"><View className="mr-3 flex-1"><Text style={{ color: colors.text }} numberOfLines={2} className="text-2xl font-extrabold leading-7">{spot.name}</Text><Text style={{ color: categoryColors[spot.category] }} className="mt-2 text-sm font-extrabold">{spot.category} · {spot.personalRating}/5</Text></View><Pressable onPress={() => toggleSaved(spot)} style={{ backgroundColor: savedSpots.some((saved) => saved.id === spot.id) ? "#FBBF24" : colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-2xl"><Bookmark color={savedSpots.some((saved) => saved.id === spot.id) ? "white" : "#0F766E"} size={21} fill={savedSpots.some((saved) => saved.id === spot.id) ? "white" : "transparent"} /></Pressable></View>
                         <Text style={{ color: colors.muted }} numberOfLines={2} className="mt-3 text-sm leading-5">{spot.description || spot.note || spot.address}</Text>
-                        <View style={{ backgroundColor: colors.surfaceMuted }} className="mt-4 rounded-2xl p-3"><Text style={{ color: colors.muted }} className="text-xs font-bold">RECOMMENDED BY</Text><Text style={{ color: colors.text }} className="mt-1 font-extrabold">{spot.pinnedBy || "Your circle"}</Text></View>
+                        <View className="mt-4 flex-1"><View className="flex-row items-center justify-between"><Text style={{ color: colors.muted }} className="text-xs font-bold">FROM THE CIRCLE</Text><Text style={{ color: categoryColors[spot.category] }} className="text-xs font-extrabold">{spot.communityRatingCount ? `${spot.communityRating?.toFixed(1)}/5 from friends` : "New recommendation"}</Text></View>{spot.comments?.filter((comment) => comment.comment.trim()).slice(0, 2).map((comment) => <View key={comment.id} style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl p-3"><View className="flex-row items-center justify-between"><Text style={{ color: colors.text }} className="font-extrabold">@{comment.user.username}</Text><Text style={{ color: "#D97706" }} className="text-xs font-extrabold">★ {comment.rating}/5</Text></View><Text style={{ color: colors.muted }} numberOfLines={2} className="mt-1 text-sm leading-5">“{comment.comment}”</Text></View>) ?? null}{!spot.comments?.some((comment) => comment.comment.trim()) && <View style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl p-3"><Text style={{ color: colors.text }} className="font-bold">{spot.pinnedBy || "Someone in your circle"} recommends this</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm">Open it on the map to add your own rating or comment.</Text></View>}</View>
                         <View className="mt-4"><Text style={{ color: colors.muted }} className="mb-2 text-center text-xs font-bold">{index < discoverableSpots.length - 1 ? "Swipe up for the next pick" : "You’ve seen every nearby pick"}</Text><View className="flex-row gap-2"><Pressable onPress={() => getDirections(spot)} className="flex-1 rounded-2xl bg-slate-900 py-3.5"><Text className="text-center font-extrabold text-white">Directions</Text></Pressable><Pressable onPress={() => { setIsDiscoverOpen(false); navigateToTab("map"); requestAnimationFrame(() => openSpot(spot)); }} className="flex-1 rounded-2xl bg-teal-700 py-3.5"><Text className="text-center font-extrabold text-white">See on map</Text></Pressable></View>{index < discoverableSpots.length - 1 ? <Pressable onPress={() => { const next = index + 1; discoverPagerRef.current?.scrollTo({ y: next * discoverPageHeight, animated: true }); setDiscoverIndex(next); }} style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl py-3"><Text style={{ color: colors.text }} className="text-center text-sm font-extrabold">Next pick</Text></Pressable> : null}</View>
                       </View>
                     </View>
