@@ -2661,24 +2661,33 @@ export function HomeScreen({
                       </Text>
                     </View>
                   </View>
-                  <View style={isDark ? { backgroundColor: colors.surface } : undefined} className="mt-4 flex-row items-center rounded-2xl bg-white px-3">
-                    <Search color="#64748B" size={18} />
-                    <TextInput style={isDark ? { color: colors.text, backgroundColor: colors.surfaceMuted } : undefined}
+                  <View
+                    style={{
+                      backgroundColor: isDark
+                        ? "rgba(255, 255, 255, 0.12)"
+                        : "rgba(255, 255, 255, 0.92)",
+                      borderColor: "rgba(255, 255, 255, 0.28)",
+                    }}
+                    className="mt-4 flex-row items-center rounded-2xl border px-3"
+                  >
+                    <Search color={isDark ? "#D7E3EC" : "#557083"} size={18} />
+                    <TextInput style={{ color: isDark ? "#F4F7FB" : "#172033", backgroundColor: "transparent" }}
                       value={friendUsername}
                       onChangeText={setFriendUsername}
                       placeholder="Username, e.g. sarah"
                       autoCapitalize="none"
-                      className="ml-2 flex-1 py-3.5 text-base leading-6 text-slate-900"
+                      className="ml-2 flex-1 py-3.5 text-base leading-6"
                       textAlignVertical="center"
-                      placeholderTextColor="#94A3B8"
+                      placeholderTextColor={isDark ? "#BDCAD7" : "#718096"}
                       returnKeyType="done"
                       onSubmitEditing={sendFriendRequest}
                     />
                     <Pressable
                       onPress={sendFriendRequest}
-                      className="rounded-xl bg-slate-900 px-3 py-2"
+                      style={{ backgroundColor: "rgba(15, 23, 42, 0.16)", borderColor: "rgba(15, 23, 42, 0.08)" }}
+                      className="rounded-xl border px-4 py-2.5"
                     >
-                      <Text style={isDark ? { color: colors.text } : undefined} className="text-xs font-extrabold text-white">
+                      <Text style={{ color: isDark ? "#FFFFFF" : "#17323B" }} className="text-xs font-extrabold">
                         Add
                       </Text>
                     </Pressable>
