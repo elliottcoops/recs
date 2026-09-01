@@ -2662,13 +2662,13 @@ export function HomeScreen({
                 contentContainerStyle={{ paddingBottom: 112 }}
               >
                 {friendsView === "circle" && <>
-                <View className="mt-6 overflow-hidden rounded-3xl bg-teal-700 p-4">
+                <View style={isDark ? { backgroundColor: colors.surface, borderColor: colors.border } : undefined} className={`mt-6 overflow-hidden rounded-3xl bg-teal-700 p-4 ${isDark ? "border" : ""}`}>
                   <View className="flex-row items-center justify-between">
                     <View>
                       <Text style={isDark ? { color: colors.text } : undefined} className="text-base font-extrabold text-white">
                         Add to your circle
                       </Text>
-                      <Text style={isDark ? { color: colors.text } : undefined} className="mt-0.5 text-sm text-teal-100">
+                      <Text style={isDark ? { color: colors.muted } : undefined} className="mt-0.5 text-sm text-teal-100">
                         Find people by their username.
                       </Text>
                     </View>
@@ -2676,13 +2676,13 @@ export function HomeScreen({
                   <View
                     style={{
                       backgroundColor: isDark
-                        ? "rgba(255, 255, 255, 0.12)"
+                        ? colors.surfaceMuted
                         : "rgba(255, 255, 255, 0.92)",
-                      borderColor: "rgba(255, 255, 255, 0.28)",
+                      borderColor: isDark ? colors.border : "rgba(255, 255, 255, 0.28)",
                     }}
                     className="mt-4 flex-row items-center rounded-2xl border px-3"
                   >
-                    <Search color={isDark ? "#D7E3EC" : "#557083"} size={18} />
+                    <Search color={isDark ? colors.muted : "#557083"} size={18} />
                     <TextInput style={{ color: isDark ? "#F4F7FB" : "#172033", backgroundColor: "transparent" }}
                       value={friendUsername}
                       onChangeText={setFriendUsername}
@@ -2696,7 +2696,7 @@ export function HomeScreen({
                     />
                     <Pressable
                       onPress={sendFriendRequest}
-                      style={{ backgroundColor: "rgba(15, 23, 42, 0.16)", borderColor: "rgba(15, 23, 42, 0.08)" }}
+                      style={{ backgroundColor: isDark ? "#0F766E" : "rgba(15, 23, 42, 0.16)", borderColor: isDark ? "#0F766E" : "rgba(15, 23, 42, 0.08)" }}
                       className="rounded-xl border px-4 py-2.5"
                     >
                       <Text style={{ color: isDark ? "#FFFFFF" : "#17323B" }} className="text-xs font-extrabold">
