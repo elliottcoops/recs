@@ -4,8 +4,11 @@ import { createContext, ReactNode, useContext, useEffect, useMemo, useState } fr
 
 export type ThemeMode = "light" | "dark" | "system";
 
-export const lightPalette = { background: "#F8FAFC", surface: "#FFFFFF", surfaceMuted: "#F1F5F9", text: "#0F172A", muted: "#64748B", border: "#E2E8F0", icon: "#334155" };
-export const darkPalette = { background: "#020617", surface: "#0F172A", surfaceMuted: "#1E293B", text: "#F8FAFC", muted: "#94A3B8", border: "#334155", icon: "#CBD5E1" };
+// A soft blue-grey canvas and ink-led typography make both modes feel more
+// editorial than the default white/slate treatment, while teal remains Recs'
+// recognisable action colour.
+export const lightPalette = { background: "#F3F5F8", surface: "#FFFFFF", surfaceMuted: "#E9EEF4", text: "#172033", muted: "#68758A", border: "#D7E0EA", icon: "#344258" };
+export const darkPalette = { background: "#10151D", surface: "#19222E", surfaceMuted: "#243040", text: "#F4F7FB", muted: "#A8B4C4", border: "#344256", icon: "#D3DCE7" };
 export const isThemeMode = (value: string | null): value is ThemeMode => value === "light" || value === "dark" || value === "system";
 export const resolveTheme = (mode: ThemeMode, system: "light" | "dark") => ({ isDark: mode === "dark" || (mode === "system" && system === "dark"), colors: mode === "dark" || (mode === "system" && system === "dark") ? darkPalette : lightPalette });
 const light = lightPalette;

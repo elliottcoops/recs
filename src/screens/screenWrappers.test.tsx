@@ -4,17 +4,18 @@ import { FriendsScreen } from "./FriendsScreen";
 import { MapScreen } from "./MapScreen";
 import { ProfileScreen } from "./ProfileScreen";
 import { SavedScreen } from "./SavedScreen";
+import { ThemeProvider } from "../theme";
 
 const cases = [[MapScreen, "map"], [FriendsScreen, "friends"], [SavedScreen, "saved"], [ProfileScreen, "settings"]] as const;
 
 describe("screen wrappers", () => {
   it.each(cases)("renders %s content when active", (Screen) => {
-    const view = render(<Screen active opacity={undefined as never}><Text>Screen content</Text></Screen>);
+    const view = render(<ThemeProvider><Screen active opacity={undefined as never}><Text>Screen content</Text></Screen></ThemeProvider>);
     expect(view).toBeDefined();
   });
 
   it.each(cases)("does not render %s content when inactive", (Screen) => {
-    const view = render(<Screen active={false} opacity={undefined as never}><Text>Screen content</Text></Screen>);
+    const view = render(<ThemeProvider><Screen active={false} opacity={undefined as never}><Text>Screen content</Text></Screen></ThemeProvider>);
     expect(view).toBeDefined();
   });
 });

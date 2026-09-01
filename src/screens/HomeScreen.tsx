@@ -78,19 +78,19 @@ import { SavedScreen } from "./SavedScreen";
 import { useTheme } from "../theme";
 
 type ThemedProps<T extends ElementType> = ComponentProps<T> & { className?: string };
-const themedSurfaceColor = (className: string | undefined, colors: { surface: string; surfaceMuted: string }) => {
+const themedSurfaceColor = (className: string | undefined, colors: { surface: string; surfaceMuted: string }, isDark: boolean) => {
   const tokens = className?.split(/\s+/) ?? [];
   if (tokens.includes("bg-white")) return colors.surface;
-  if (tokens.includes("bg-emerald-50") || tokens.includes("bg-teal-50")) return "#134E4A";
-  if (tokens.includes("bg-amber-50")) return "#451A03";
-  if (tokens.includes("bg-rose-50")) return "#4C0519";
+  if (tokens.includes("bg-emerald-50") || tokens.includes("bg-teal-50")) return isDark ? "#153E3C" : "#DFF1EE";
+  if (tokens.includes("bg-amber-50")) return isDark ? "#493616" : "#FFF1DC";
+  if (tokens.includes("bg-rose-50")) return isDark ? "#4A2731" : "#FCE9ED";
   if (tokens.includes("bg-slate-50") || tokens.includes("bg-slate-100")) return colors.surfaceMuted;
   return undefined;
 };
-function View({ className, style, ...props }: ThemedProps<typeof RNView>) { const { isDark, colors } = useTheme(); const backgroundColor = isDark ? themedSurfaceColor(className, colors) : undefined; return <RNView {...props} className={className} style={[style, backgroundColor ? { backgroundColor } : undefined]} />; }
-function Pressable({ className, style, ...props }: ThemedProps<typeof RNPressable>) { const { isDark, colors } = useTheme(); const backgroundColor = isDark ? themedSurfaceColor(className, colors) : undefined; return <RNPressable {...props} className={className} style={[style as never, backgroundColor ? { backgroundColor } : undefined]} />; }
-function Text({ className, style, ...props }: ThemedProps<typeof RNText>) { const { isDark, colors } = useTheme(); const muted = className?.includes("text-slate-400") || className?.includes("text-slate-500") || className?.includes("text-slate-600"); return <RNText {...props} className={className} style={[style, isDark && className?.includes("text-slate") ? { color: muted ? colors.muted : colors.text } : undefined]} />; }
-function TextInput({ className, style, ...props }: ThemedProps<typeof RNTextInput>) { const { isDark, colors } = useTheme(); return <RNTextInput {...props} className={className} style={[style, isDark ? { color: colors.text, backgroundColor: colors.surfaceMuted } : undefined]} />; }
+function View({ className, style, ...props }: ThemedProps<typeof RNView>) { const { isDark, colors } = useTheme(); const backgroundColor = themedSurfaceColor(className, colors, isDark); return <RNView {...props} className={className} style={[style, backgroundColor ? { backgroundColor } : undefined]} />; }
+function Pressable({ className, style, ...props }: ThemedProps<typeof RNPressable>) { const { isDark, colors } = useTheme(); const backgroundColor = themedSurfaceColor(className, colors, isDark); return <RNPressable {...props} className={className} style={[style as never, backgroundColor ? { backgroundColor } : undefined]} />; }
+function Text({ className, style, ...props }: ThemedProps<typeof RNText>) { const { colors } = useTheme(); const muted = className?.includes("text-slate-400") || className?.includes("text-slate-500") || className?.includes("text-slate-600"); return <RNText {...props} className={className} style={[style, className?.includes("text-slate") ? { color: muted ? colors.muted : colors.text } : undefined]} />; }
+function TextInput({ className, style, ...props }: ThemedProps<typeof RNTextInput>) { const { colors } = useTheme(); return <RNTextInput {...props} className={className} style={[style, { color: colors.text, backgroundColor: colors.surfaceMuted }]} />; }
 
 type PlaceSearchResult = {
   placeId: string;
