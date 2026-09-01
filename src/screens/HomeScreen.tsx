@@ -1,4 +1,5 @@
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import Slider from "@react-native-community/slider";
 import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
@@ -301,7 +302,7 @@ export function HomeScreen({
   const [discoverSpots, setDiscoverSpots] = useState<Spot[]>([]);
   const [isDiscoverLoading, setIsDiscoverLoading] = useState(false);
   const [discoverAudience, setDiscoverAudience] = useState<"friends" | "public">("public");
-  const [discoverRadiusMiles, setDiscoverRadiusMiles] = useState<5 | 10 | 25>(5);
+  const [discoverRadiusMiles, setDiscoverRadiusMiles] = useState(5);
   const [activeTab, setActiveTab] = useState<AppTab>("map");
   const tabFade = useRef(new Animated.Value(1)).current;
   const [isPasswordOpen, setIsPasswordOpen] = useState(false);
@@ -2011,9 +2012,30 @@ export function HomeScreen({
               <View style={{ backgroundColor: colors.surfaceMuted }} className="flex-row rounded-2xl p-1">
                 {(["friends", "public"] as const).map((audience) => <Pressable key={audience} onPress={() => { setDiscoverAudience(audience); void openDiscover(audience); }} style={discoverAudience === audience ? { backgroundColor: colors.surface } : undefined} className="flex-1 rounded-xl py-2.5"><Text style={{ color: discoverAudience === audience ? "#0F766E" : colors.muted }} className="text-center text-xs font-extrabold">{audience === "friends" ? "Friends' picks" : "Public near you"}</Text></Pressable>)}
               </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingTop: 10 }}>
-                {([5, 10, 25] as const).map((miles) => <Pressable key={miles} onPress={() => { setDiscoverRadiusMiles(miles); void openDiscover(discoverAudience, miles); }} style={{ backgroundColor: discoverRadiusMiles === miles ? "#0F766E" : colors.surfaceMuted }} className="rounded-full px-4 py-2"><Text style={{ color: discoverRadiusMiles === miles ? "white" : colors.muted }} className="text-xs font-extrabold">Within {miles} mi</Text></Pressable>)}
-              </ScrollView>
+              <View style={{ backgroundColor: colors.surface }} className="mt-3 rounded-2xl border px-4 pb-2 pt-3" >
+                <View className="flex-row items-center justify-between">
+                  <Text style={{ color: colors.muted }} className="text-xs font-bold">Maximum distance</Text>
+                  <Text style={{ color: "#0F766E" }} className="text-sm font-extrabold">{discoverRadiusMiles} {discoverRadiusMiles === 1 ? "mile" : "miles"}</Text>
+                </View>
+                <Slider
+                  value={discoverRadiusMiles}
+                  minimumValue={1}
+                  maximumValue={25}
+                  step={1}
+                  minimumTrackTintColor="#0F766E"
+                  maximumTrackTintColor={colors.border}
+                  thumbTintColor="#0F766E"
+                  onValueChange={(value) => setDiscoverRadiusMiles(Math.round(value))}
+                  onSlidingComplete={(value) => {
+                    const miles = Math.round(value);
+                    setDiscoverRadiusMiles(miles);
+                    void openDiscover(discoverAudience, miles);
+                  }}
+                  style={{ width: "100%", height: 34 }}
+                  accessibilityLabel="Maximum Discover distance"
+                />
+                <View className="-mt-1 flex-row justify-between"><Text style={{ color: colors.muted }} className="text-[10px] font-semibold">1 mi</Text><Text style={{ color: colors.muted }} className="text-[10px] font-semibold">25 mi</Text></View>
+              </View>
             </View>
             {isDiscoverLoading ? (
               <View className="flex-1 items-center justify-center"><ActivityIndicator color="#0F766E" size="large" /><Text style={{ color: colors.muted }} className="mt-4 font-bold">Finding your next picks…</Text></View>
