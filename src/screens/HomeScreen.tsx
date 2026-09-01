@@ -2000,7 +2000,7 @@ export function HomeScreen({
       </SafeAreaView>
 
       <DiscoverScreen active={activeTab === "discover"} opacity={tabFade}>
-          <SafeAreaView edges={[]} style={{ paddingTop: tabTopInset, backgroundColor: colors.background }} className="flex-1">
+          <SafeAreaView edges={[]} style={{ paddingTop: tabTopInset, paddingBottom: 82, backgroundColor: colors.background }} className="flex-1">
             <View className="flex-row items-center justify-between px-5 pb-2 pt-5">
               <View><Text style={{ color: colors.text }} className="text-2xl font-extrabold">Discover</Text><Text style={{ color: colors.muted }} className="mt-0.5 text-sm">{userLocation ? "Near your location" : "Using this part of the map"}</Text></View>
               <Pressable onPress={() => navigateToTab("map")} style={{ backgroundColor: colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-full"><X color={colors.icon} size={22} /></Pressable>
