@@ -63,7 +63,6 @@ import {
   StyleSheet,
   Text as RNText,
   TextInput as RNTextInput,
-  useWindowDimensions,
   View as RNView,
 } from "react-native";
 import MapView, { Marker, Region } from "react-native-maps";
@@ -303,6 +302,7 @@ export function HomeScreen({
   const [isDiscoverLoading, setIsDiscoverLoading] = useState(false);
   const [discoverAudience, setDiscoverAudience] = useState<"friends" | "public">("public");
   const [discoverRadiusMiles, setDiscoverRadiusMiles] = useState(5);
+  const [discoverFeedHeight, setDiscoverFeedHeight] = useState(560);
   const [activeTab, setActiveTab] = useState<AppTab>("map");
   const tabFade = useRef(new Animated.Value(1)).current;
   const [isPasswordOpen, setIsPasswordOpen] = useState(false);
@@ -379,7 +379,6 @@ export function HomeScreen({
     latitude: number;
     longitude: number;
   } | null>(null);
-  const { height: viewportHeight } = useWindowDimensions();
   const discoverPagerRef = useRef<ScrollView>(null);
   const visibleMapCategories = categories.filter((item) =>
     item.toLowerCase().includes(mapCategorySearch.trim().toLowerCase()),
@@ -393,7 +392,9 @@ export function HomeScreen({
     0,
   );
   const discoverableSpots = discoverSpots.length ? discoverSpots : spots.filter((spot) => !spot.isCluster);
-  const discoverPageHeight = viewportHeight - 112;
+  // Measured from the space below the Discover toolbar. This keeps one whole
+  // card per swipe on every phone size, with a small gap beneath the card.
+  const discoverPageHeight = Math.max(1, discoverFeedHeight);
   const filteredSavedSpots = savedSpots
     .filter(
       (spot) => savedCategory === "All" || spot.category === savedCategory,
@@ -2040,9 +2041,9 @@ export function HomeScreen({
             {isDiscoverLoading ? (
               <View className="flex-1 items-center justify-center"><ActivityIndicator color="#0F766E" size="large" /><Text style={{ color: colors.muted }} className="mt-4 font-bold">Finding your next picks…</Text></View>
             ) : discoverableSpots.length ? (
-              <ScrollView ref={discoverPagerRef} pagingEnabled snapToInterval={discoverPageHeight} disableIntervalMomentum decelerationRate="fast" showsVerticalScrollIndicator={false} snapToAlignment="start" onMomentumScrollEnd={(event) => setDiscoverIndex(Math.round(event.nativeEvent.contentOffset.y / discoverPageHeight))}>
+              <ScrollView ref={discoverPagerRef} style={{ flex: 1 }} onLayout={(event) => setDiscoverFeedHeight(event.nativeEvent.layout.height)} pagingEnabled snapToInterval={discoverPageHeight} disableIntervalMomentum decelerationRate="fast" showsVerticalScrollIndicator={false} snapToAlignment="start" onMomentumScrollEnd={(event) => setDiscoverIndex(Math.round(event.nativeEvent.contentOffset.y / discoverPageHeight))}>
                 {discoverableSpots.map((spot, index) => (
-                  <View key={spot.id} style={{ height: discoverPageHeight }} className="px-5 pb-10">
+                  <View key={spot.id} style={{ height: discoverPageHeight }} className="px-5 pb-3">
                     <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="flex-1 overflow-hidden rounded-[32px] border shadow-lg">
                       <View style={{ backgroundColor: `${categoryColors[spot.category]}33` }} className="h-[42%] items-center justify-center">
                         {spot.photoUri ? <NativeImage source={{ uri: spot.photoUri }} style={styles.discoverPhoto} /> : <View style={{ backgroundColor: categoryColors[spot.category] }} className="h-20 w-20 items-center justify-center rounded-3xl shadow-lg">{categoryIcon(spot.category, "white", 36)}</View>}
