@@ -2004,19 +2004,19 @@ export function HomeScreen({
       >
         <View style={{ flex: 1, backgroundColor: colors.background }}>
           <SafeAreaView edges={[]} style={{ paddingTop: tabTopInset, backgroundColor: colors.background }} className="flex-1">
-            <View className="flex-row items-center justify-between px-5 pb-3 pt-5">
-              <View><Text style={{ color: colors.text }} className="text-2xl font-extrabold">Discover</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm">{userLocation ? `Within ${discoverRadiusMiles} miles of you` : "Using this part of the map"}</Text></View>
+            <View className="flex-row items-center justify-between px-5 pb-2 pt-5">
+              <View><Text style={{ color: colors.text }} className="text-2xl font-extrabold">Discover</Text><Text style={{ color: colors.muted }} className="mt-0.5 text-sm">{userLocation ? "Near your location" : "Using this part of the map"}</Text></View>
               <Pressable onPress={() => setIsDiscoverOpen(false)} style={{ backgroundColor: colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-full"><X color={colors.icon} size={22} /></Pressable>
             </View>
-            <View className="px-5 pb-3">
-              <View style={{ backgroundColor: colors.surfaceMuted }} className="flex-row rounded-2xl p-1">
-                {(["friends", "public"] as const).map((audience) => <Pressable key={audience} onPress={() => { setDiscoverAudience(audience); void openDiscover(audience); }} style={discoverAudience === audience ? { backgroundColor: colors.surface } : undefined} className="flex-1 rounded-xl py-2.5"><Text style={{ color: discoverAudience === audience ? "#0F766E" : colors.muted }} className="text-center text-xs font-extrabold">{audience === "friends" ? "Friends' picks" : "Public near you"}</Text></Pressable>)}
-              </View>
-              <View style={{ backgroundColor: colors.surface }} className="mt-3 rounded-2xl border px-4 pb-2 pt-3" >
-                <View className="flex-row items-center justify-between">
-                  <Text style={{ color: colors.muted }} className="text-xs font-bold">Maximum distance</Text>
-                  <Text style={{ color: "#0F766E" }} className="text-sm font-extrabold">{discoverRadiusMiles} {discoverRadiusMiles === 1 ? "mile" : "miles"}</Text>
+            <View className="px-5 pb-2 pt-1">
+              <View className="flex-row items-center">
+                <View style={{ backgroundColor: colors.surfaceMuted }} className="flex-1 flex-row rounded-xl p-1">
+                  {(["friends", "public"] as const).map((audience) => <Pressable key={audience} onPress={() => { setDiscoverAudience(audience); void openDiscover(audience); }} style={discoverAudience === audience ? { backgroundColor: colors.surface } : undefined} className="flex-1 rounded-lg py-2"><Text style={{ color: discoverAudience === audience ? "#0F766E" : colors.muted }} className="text-center text-xs font-extrabold">{audience === "friends" ? "Friends" : "Public"}</Text></Pressable>)}
                 </View>
+                <View style={{ backgroundColor: colors.surfaceMuted }} className="ml-2 rounded-xl px-3 py-2"><Text style={{ color: "#0F766E" }} className="text-xs font-extrabold">{discoverRadiusMiles} mi</Text></View>
+              </View>
+              <View className="mt-1 flex-row items-center">
+                <Text style={{ color: colors.muted }} className="mr-1 text-[10px] font-semibold">1</Text>
                 <Slider
                   value={discoverRadiusMiles}
                   minimumValue={1}
@@ -2031,10 +2031,10 @@ export function HomeScreen({
                     setDiscoverRadiusMiles(miles);
                     void openDiscover(discoverAudience, miles);
                   }}
-                  style={{ width: "100%", height: 34 }}
+                  style={{ flex: 1, height: 28 }}
                   accessibilityLabel="Maximum Discover distance"
                 />
-                <View className="-mt-1 flex-row justify-between"><Text style={{ color: colors.muted }} className="text-[10px] font-semibold">1 mi</Text><Text style={{ color: colors.muted }} className="text-[10px] font-semibold">25 mi</Text></View>
+                <Text style={{ color: colors.muted }} className="ml-1 text-[10px] font-semibold">25</Text>
               </View>
             </View>
             {isDiscoverLoading ? (
