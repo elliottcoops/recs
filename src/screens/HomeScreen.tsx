@@ -1432,9 +1432,6 @@ export function HomeScreen({
                     {visibleRecommendationCount} Recs nearby
                   </Text>
                 </View>
-                <Pressable onPress={() => navigateToTab("profile")} style={{ backgroundColor: colors.surfaceMuted }} className="ml-1 h-8 w-8 items-center justify-center rounded-full">
-                  <SettingsIcon color={colors.icon} size={16} />
-                </Pressable>
                 <Pressable
                   onPress={() => setIsTopBarCollapsed((current) => !current)}
                   className="ml-1 rounded-full bg-slate-100 p-1.5"
@@ -1589,14 +1586,24 @@ export function HomeScreen({
           </View>
         </SafeAreaView>
         {!selectedSpot && (
-          <Pressable
-            accessibilityLabel="Center map on my location"
-            onPress={centerOnUser}
-            style={styles.locationButton}
-            className="h-12 w-12 items-center justify-center rounded-full bg-white shadow-lg"
-          >
-            <LocateFixed color="#0F766E" size={22} />
-          </Pressable>
+          <>
+            <Pressable
+              accessibilityLabel="Open settings"
+              onPress={() => navigateToTab("profile")}
+              style={[styles.mapSettingsButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              className="h-12 w-12 items-center justify-center rounded-full border shadow-lg"
+            >
+              <SettingsIcon color="#0F766E" size={21} />
+            </Pressable>
+            <Pressable
+              accessibilityLabel="Center map on my location"
+              onPress={centerOnUser}
+              style={[styles.locationButton, { backgroundColor: colors.surface }]}
+              className="h-12 w-12 items-center justify-center rounded-full shadow-lg"
+            >
+              <LocateFixed color="#0F766E" size={22} />
+            </Pressable>
+          </>
         )}
 
         <BottomSheet
@@ -3799,6 +3806,17 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 18,
     bottom: 108,
+    zIndex: 4,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 6,
+  },
+  mapSettingsButton: {
+    position: "absolute",
+    right: 18,
+    bottom: 166,
     zIndex: 4,
     shadowColor: "#0F172A",
     shadowOpacity: 0.16,
