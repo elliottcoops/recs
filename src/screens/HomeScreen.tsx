@@ -302,6 +302,7 @@ export function HomeScreen({
   const [isDiscoverLoading, setIsDiscoverLoading] = useState(false);
   const [discoverAudience, setDiscoverAudience] = useState<"friends" | "public">("public");
   const [discoverRadiusMiles, setDiscoverRadiusMiles] = useState(5);
+  const [isDiscoverDistancePickerOpen, setIsDiscoverDistancePickerOpen] = useState(false);
   const [discoverFeedHeight, setDiscoverFeedHeight] = useState(560);
   const [activeTab, setActiveTab] = useState<AppTab>("map");
   const tabFade = useRef(new Animated.Value(1)).current;
@@ -489,6 +490,7 @@ export function HomeScreen({
     radiusMiles = discoverRadiusMiles,
   ) => {
     setDiscoverIndex(0);
+    setIsDiscoverDistancePickerOpen(false);
     setIsDiscoverOpen(true);
     if (!API_BASE_URL) return;
     setIsDiscoverLoading(true);
@@ -2014,29 +2016,9 @@ export function HomeScreen({
                 <View style={{ backgroundColor: colors.surfaceMuted }} className="flex-1 flex-row rounded-xl p-1">
                   {(["friends", "public"] as const).map((audience) => <Pressable key={audience} onPress={() => { setDiscoverAudience(audience); void openDiscover(audience); }} style={discoverAudience === audience ? { backgroundColor: colors.surface } : undefined} className="flex-1 rounded-lg py-2"><Text style={{ color: discoverAudience === audience ? "#0F766E" : colors.muted }} className="text-center text-xs font-extrabold">{audience === "friends" ? "Friends" : "Public"}</Text></Pressable>)}
                 </View>
-                <View style={{ backgroundColor: colors.surfaceMuted }} className="ml-2 rounded-xl px-3 py-2"><Text style={{ color: "#0F766E" }} className="text-xs font-extrabold">{discoverRadiusMiles} mi</Text></View>
+                <Pressable onPress={() => setIsDiscoverDistancePickerOpen((current) => !current)} style={{ backgroundColor: colors.surfaceMuted }} className="ml-2 flex-row items-center rounded-xl px-3 py-2"><Text style={{ color: "#0F766E" }} className="text-xs font-extrabold">{discoverRadiusMiles} mi</Text><ChevronDown color="#0F766E" size={14} style={{ marginLeft: 3, transform: [{ rotate: isDiscoverDistancePickerOpen ? "180deg" : "0deg" }] }} /></Pressable>
               </View>
-              <View className="mt-1 flex-row items-center">
-                <Text style={{ color: colors.muted }} className="mr-1 text-[10px] font-semibold">1</Text>
-                <Slider
-                  value={discoverRadiusMiles}
-                  minimumValue={1}
-                  maximumValue={25}
-                  step={1}
-                  minimumTrackTintColor="#0F766E"
-                  maximumTrackTintColor={colors.border}
-                  thumbTintColor="#0F766E"
-                  onValueChange={(value) => setDiscoverRadiusMiles(Math.round(value))}
-                  onSlidingComplete={(value) => {
-                    const miles = Math.round(value);
-                    setDiscoverRadiusMiles(miles);
-                    void openDiscover(discoverAudience, miles);
-                  }}
-                  style={{ flex: 1, height: 28 }}
-                  accessibilityLabel="Maximum Discover distance"
-                />
-                <Text style={{ color: colors.muted }} className="ml-1 text-[10px] font-semibold">25</Text>
-              </View>
+              {isDiscoverDistancePickerOpen && <View style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl px-3 pb-2 pt-3"><View className="flex-row items-center justify-between"><Text style={{ color: colors.muted }} className="text-xs font-bold">Show places up to</Text><Text style={{ color: "#0F766E" }} className="text-sm font-extrabold">{discoverRadiusMiles} {discoverRadiusMiles === 1 ? "mile" : "miles"}</Text></View><View className="mt-1 flex-row items-center"><Text style={{ color: colors.muted }} className="mr-1 text-[10px] font-semibold">1</Text><Slider value={discoverRadiusMiles} minimumValue={1} maximumValue={25} step={1} minimumTrackTintColor="#0F766E" maximumTrackTintColor={colors.border} thumbTintColor="#0F766E" onValueChange={(value) => setDiscoverRadiusMiles(Math.round(value))} onSlidingComplete={(value) => { const miles = Math.round(value); setDiscoverRadiusMiles(miles); setIsDiscoverDistancePickerOpen(false); void openDiscover(discoverAudience, miles); }} style={{ flex: 1, height: 28 }} accessibilityLabel="Maximum Discover distance" /><Text style={{ color: colors.muted }} className="ml-1 text-[10px] font-semibold">25</Text></View></View>}
             </View>
             {isDiscoverLoading ? (
               <View className="flex-1 items-center justify-center"><ActivityIndicator color="#0F766E" size="large" /><Text style={{ color: colors.muted }} className="mt-4 font-bold">Finding your next picks…</Text></View>
