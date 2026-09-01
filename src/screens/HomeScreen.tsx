@@ -61,6 +61,7 @@ import {
   StyleSheet,
   Text as RNText,
   TextInput as RNTextInput,
+  useWindowDimensions,
   View as RNView,
 } from "react-native";
 import MapView, { Marker, Region } from "react-native-maps";
@@ -294,6 +295,7 @@ export function HomeScreen({
   const [isFriendFeedbackOpen, setIsFriendFeedbackOpen] = useState(false);
   const [isUpdatingSharing, setIsUpdatingSharing] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isDiscoverOpen, setIsDiscoverOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<AppTab>("map");
   const tabFade = useRef(new Animated.Value(1)).current;
   const [isPasswordOpen, setIsPasswordOpen] = useState(false);
@@ -370,6 +372,7 @@ export function HomeScreen({
     latitude: number;
     longitude: number;
   } | null>(null);
+  const { height: viewportHeight } = useWindowDimensions();
   const visibleMapCategories = categories.filter((item) =>
     item.toLowerCase().includes(mapCategorySearch.trim().toLowerCase()),
   );
@@ -381,6 +384,7 @@ export function HomeScreen({
     (total, spot) => total + (spot.clusterCount ?? 1),
     0,
   );
+  const discoverableSpots = spots.filter((spot) => !spot.isCluster);
   const filteredSavedSpots = savedSpots
     .filter(
       (spot) => savedCategory === "All" || spot.category === savedCategory,
@@ -1423,6 +1427,10 @@ export function HomeScreen({
                     </Pressable>
                   ))}
                 </View>
+                <Pressable onPress={() => setIsDiscoverOpen(true)} className="mt-3 flex-row items-center justify-between rounded-2xl bg-teal-700 px-4 py-3">
+                  <View><Text className="font-extrabold text-white">Discover picks</Text><Text className="mt-0.5 text-xs font-semibold text-teal-100">Swipe through places around this map</Text></View>
+                  <ChevronDown color="white" size={20} style={{ transform: [{ rotate: "-90deg" }] }} />
+                </Pressable>
                 <View style={isDark ? { backgroundColor: colors.surfaceMuted } : undefined} className="mt-3 flex-row items-center rounded-2xl border border-slate-100 bg-slate-50 px-3">
                   <Search color="#64748B" size={18} />
                   <TextInput style={isDark ? { color: colors.text, backgroundColor: colors.surfaceMuted } : undefined}
@@ -1934,6 +1942,42 @@ export function HomeScreen({
         </View>
       </SafeAreaView>
 
+      <Modal
+        visible={isDiscoverOpen}
+        animationType="slide"
+        onRequestClose={() => setIsDiscoverOpen(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
+          <SafeAreaView edges={["top"]} style={{ backgroundColor: colors.background }} className="flex-1">
+            <View className="flex-row items-center justify-between px-5 pb-3 pt-2">
+              <View><Text style={{ color: colors.text }} className="text-2xl font-extrabold">Discover</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm">Places from this part of the map</Text></View>
+              <Pressable onPress={() => setIsDiscoverOpen(false)} style={{ backgroundColor: colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-full"><X color={colors.icon} size={22} /></Pressable>
+            </View>
+            {discoverableSpots.length ? (
+              <ScrollView pagingEnabled decelerationRate="fast" showsVerticalScrollIndicator={false} snapToAlignment="start">
+                {discoverableSpots.map((spot, index) => (
+                  <View key={spot.id} style={{ height: viewportHeight - 112 }} className="px-5 pb-4">
+                    <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="flex-1 overflow-hidden rounded-[32px] border shadow-lg">
+                      <View style={{ backgroundColor: `${categoryColors[spot.category]}33` }} className="h-[46%] items-center justify-center">
+                        {spot.photoUri ? <NativeImage source={{ uri: spot.photoUri }} style={styles.discoverPhoto} /> : <View style={{ backgroundColor: categoryColors[spot.category] }} className="h-20 w-20 items-center justify-center rounded-3xl shadow-lg">{categoryIcon(spot.category, "white", 36)}</View>}
+                        <View style={{ backgroundColor: "rgba(15, 23, 42, 0.72)" }} className="absolute left-4 top-4 rounded-full px-3 py-1.5"><Text className="text-xs font-extrabold text-white">{index + 1} of {discoverableSpots.length}</Text></View>
+                      </View>
+                      <View className="flex-1 p-5">
+                        <View className="flex-row items-start justify-between"><View className="mr-3 flex-1"><Text style={{ color: colors.text }} numberOfLines={2} className="text-2xl font-extrabold leading-7">{spot.name}</Text><Text style={{ color: categoryColors[spot.category] }} className="mt-2 text-sm font-extrabold">{spot.category} · {spot.personalRating}/5</Text></View><Pressable onPress={() => toggleSaved(spot)} style={{ backgroundColor: savedSpots.some((saved) => saved.id === spot.id) ? "#FBBF24" : colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-2xl"><Bookmark color={savedSpots.some((saved) => saved.id === spot.id) ? "white" : "#0F766E"} size={21} fill={savedSpots.some((saved) => saved.id === spot.id) ? "white" : "transparent"} /></Pressable></View>
+                        <Text style={{ color: colors.muted }} numberOfLines={2} className="mt-3 text-sm leading-5">{spot.description || spot.note || spot.address}</Text>
+                        <View style={{ backgroundColor: colors.surfaceMuted }} className="mt-4 rounded-2xl p-3"><Text style={{ color: colors.muted }} className="text-xs font-bold">RECOMMENDED BY</Text><Text style={{ color: colors.text }} className="mt-1 font-extrabold">{spot.pinnedBy || "Your circle"}</Text></View>
+                        <View className="mt-auto flex-row gap-2 pt-4"><Pressable onPress={() => getDirections(spot)} className="flex-1 rounded-2xl bg-slate-900 py-3.5"><Text className="text-center font-extrabold text-white">Directions</Text></Pressable><Pressable onPress={() => { setIsDiscoverOpen(false); navigateToTab("map"); requestAnimationFrame(() => openSpot(spot)); }} className="flex-1 rounded-2xl bg-teal-700 py-3.5"><Text className="text-center font-extrabold text-white">See on map</Text></Pressable></View>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            ) : (
+              <View className="flex-1 items-center justify-center px-8"><View style={{ backgroundColor: colors.surfaceMuted }} className="h-16 w-16 items-center justify-center rounded-3xl"><MapPin color="#0F766E" size={30} /></View><Text style={{ color: colors.text }} className="mt-5 text-xl font-extrabold">No picks here yet</Text><Text style={{ color: colors.muted }} className="mt-2 text-center leading-5">Move the map to a busier area, then open Discover again.</Text></View>
+            )}
+          </SafeAreaView>
+        </View>
+      </Modal>
       <Modal
         visible={isAddOpen}
         animationType="fade"
@@ -3671,6 +3715,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   cardPhoto: { width: "100%", height: "100%" },
+  discoverPhoto: { width: "100%", height: "100%" },
   searchAreaContainer: {
     position: "absolute",
     top: 278,
