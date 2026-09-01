@@ -824,14 +824,17 @@ export function HomeScreen({
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.token}`,
         },
-        body: JSON.stringify({ query: discoveryQuery.trim() }),
+        body: JSON.stringify({
+          query: discoveryQuery.trim(),
+          latitude: region.latitude,
+          longitude: region.longitude,
+        }),
       });
       const body = await response.json();
       if (!response.ok)
         throw new Error(body.error ?? "Location search failed.");
       const matches = body as PlaceSearchResult[];
       setLocationResults(matches);
-      if (matches[0]) selectMapLocation(matches[0]);
     } catch (reason) {
       Alert.alert(
         "Could not find that location",
@@ -1452,10 +1455,6 @@ export function HomeScreen({
                     </Pressable>
                   ))}
                 </View>
-                <Pressable onPress={() => void openDiscover()} className="mt-3 flex-row items-center justify-between rounded-2xl bg-teal-700 px-4 py-3">
-                  <View><Text className="font-extrabold text-white">Discover picks</Text><Text className="mt-0.5 text-xs font-semibold text-teal-100">Swipe through places around this map</Text></View>
-                  <ChevronDown color="white" size={20} style={{ transform: [{ rotate: "-90deg" }] }} />
-                </Pressable>
                 <View style={isDark ? { backgroundColor: colors.surfaceMuted } : undefined} className="mt-3 flex-row items-center rounded-2xl border border-slate-100 bg-slate-50 px-3">
                   <Search color="#64748B" size={18} />
                   <TextInput style={isDark ? { color: colors.text, backgroundColor: colors.surfaceMuted } : undefined}
@@ -1465,7 +1464,7 @@ export function HomeScreen({
                       setLocationResults([]);
                     }}
                     onSubmitEditing={searchMapLocation}
-                    placeholder="Search a location"
+                    placeholder="Search for a place, e.g. Pizza Hut"
                     placeholderTextColor="#94A3B8"
                     returnKeyType="search"
                     className="ml-2 flex-1 py-3 text-sm text-slate-900"
@@ -1481,6 +1480,30 @@ export function HomeScreen({
                     </Pressable>
                   )}
                 </View>
+                {locationResults.length > 0 && (
+                  <View style={isDark ? { backgroundColor: colors.surface } : undefined} className="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    {locationResults.map((place) => (
+                      <Pressable
+                        key={place.placeId}
+                        onPress={() => selectMapLocation(place)}
+                        className="flex-row items-center border-b border-slate-100 px-3 py-3 last:border-b-0"
+                      >
+                        <View className="h-9 w-9 items-center justify-center rounded-full bg-teal-50">
+                          <MapPin color="#0F766E" size={18} />
+                        </View>
+                        <View className="ml-3 flex-1">
+                          <Text style={isDark ? { color: colors.text } : undefined} numberOfLines={1} className="text-sm font-extrabold text-slate-900">
+                            {place.name}
+                          </Text>
+                          <Text numberOfLines={1} className="mt-0.5 text-xs text-slate-500">
+                            {place.address}
+                          </Text>
+                        </View>
+                        <ChevronDown color="#64748B" size={16} style={{ transform: [{ rotate: "-90deg" }] }} />
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
                 <Pressable
                   onPress={() => setIsCategoryPickerOpen((current) => !current)}
                   className="mt-3 flex-row items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2.5"

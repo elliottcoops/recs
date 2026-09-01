@@ -84,9 +84,11 @@ async function shapeSpot(env, spot) {
   const average = reviews.length ? Math.round(reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length * 10) / 10 : null;
   return { id: spot.id, userId: spot.user_id, name: spot.name, category: spot.category, latitude: spot.latitude, longitude: spot.longitude, address: spot.address, rating: spot.google_rating, personalRating: spot.personal_rating, description: spot.description, note: spot.description || "No note added yet.", visibility: spot.visibility, pinnedBy: `@${owner.username}`, ownerType: "friend", photoUri: photos[0]?.uri ?? null, photoUris: photos.map((photo) => photo.uri), photos, communityRating: average, communityRatingCount: reviews.length, comments: reviews.filter((review) => review.comment).map((review) => ({ id: review.id, userId: review.user_id, rating: review.rating, comment: review.comment, photoUri: null, createdAt: review.created_at, user: publicUser(review) })) };
 }
-async function googleSearch(env, query) {
+async function googleSearch(env, query, latitude, longitude) {
   if (!env.GOOGLE_PLACES_API_KEY) throw new Error("Google Places is not configured.");
-  const response = await fetch("https://places.googleapis.com/v1/places:searchText", { method: "POST", headers: { "Content-Type": "application/json", "X-Goog-Api-Key": env.GOOGLE_PLACES_API_KEY, "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.rating" }, body: JSON.stringify({ textQuery: query, languageCode: "en", maxResultCount: 5 }) });
+  const nearbySearch = Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
+  const requestBody = { textQuery: query, languageCode: "en", maxResultCount: 5, ...(nearbySearch ? { rankPreference: "DISTANCE", locationBias: { circle: { center: { latitude: Number(latitude), longitude: Number(longitude) }, radius: 50000 } } } : {}) };
+  const response = await fetch("https://places.googleapis.com/v1/places:searchText", { method: "POST", headers: { "Content-Type": "application/json", "X-Goog-Api-Key": env.GOOGLE_PLACES_API_KEY, "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.rating" }, body: JSON.stringify(requestBody) });
   if (!response.ok) throw new Error("Google Places search failed.");
   const { places = [] } = await response.json();
   return places.filter((place) => place.location).map((place) => ({ placeId: place.id, name: place.displayName?.text ?? "Unnamed venue", address: place.formattedAddress ?? "Address unavailable", latitude: place.location.latitude, longitude: place.location.longitude, rating: place.rating ?? 0 }));
@@ -117,7 +119,7 @@ export default {
       if (request.method === "POST" && path === "/api/auth/logout") { const token = request.headers.get("Authorization")?.replace(/^Bearer\s+/i,""); if (token) await env.DB.prepare("DELETE FROM sessions WHERE token=?").bind(token).run(); return empty(); }
       const { user, token } = await authenticated(request, env);
       if (request.method === "GET" && path === "/api/me") return json(publicUser(user));
-      if (request.method === "POST" && path === "/api/places/search") { const { query } = await body(request); if (String(query ?? "").trim().length < 3) return json({ error: "Enter at least three characters." },400); return json(await googleSearch(env, query.trim())); }
+      if (request.method === "POST" && path === "/api/places/search") { const { query, latitude, longitude } = await body(request); if (String(query ?? "").trim().length < 3) return json({ error: "Enter at least three characters." },400); return json(await googleSearch(env, query.trim(), latitude, longitude)); }
       if (path === "/api/uploads" || path.startsWith("/api/files/")) return json({ error: "Photo uploads are not enabled in this hosted preview." }, 501);
       if (request.method === "GET" && path === "/api/spots") {
         const mode=url.searchParams.get("mode") ?? "mine", filters=(url.searchParams.get("filters") ?? "").split(",").filter(Boolean), latitude=Number(url.searchParams.get("latitude")), longitude=Number(url.searchParams.get("longitude")), latitudeDelta=Number(url.searchParams.get("latitudeDelta")), longitudeDelta=Number(url.searchParams.get("longitudeDelta")), wantsClusters=url.searchParams.get("cluster")==="1"; const friends=await friendIds(env,user.id);
