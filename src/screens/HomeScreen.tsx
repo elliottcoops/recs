@@ -1951,8 +1951,8 @@ export function HomeScreen({
         onRequestClose={() => setIsDiscoverOpen(false)}
       >
         <View style={{ flex: 1, backgroundColor: colors.background }}>
-          <SafeAreaView edges={["top"]} style={{ backgroundColor: colors.background }} className="flex-1">
-            <View className="flex-row items-center justify-between px-5 pb-3 pt-2">
+          <SafeAreaView edges={[]} style={{ paddingTop: tabTopInset, backgroundColor: colors.background }} className="flex-1">
+            <View className="flex-row items-center justify-between px-5 pb-3 pt-5">
               <View><Text style={{ color: colors.text }} className="text-2xl font-extrabold">Discover</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm">Places from this part of the map</Text></View>
               <Pressable onPress={() => setIsDiscoverOpen(false)} style={{ backgroundColor: colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-full"><X color={colors.icon} size={22} /></Pressable>
             </View>
