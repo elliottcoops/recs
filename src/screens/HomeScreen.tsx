@@ -15,6 +15,7 @@ import {
   ChevronUp,
   CircleDot,
   Coffee,
+  Compass,
   Croissant,
   Dumbbell,
   Film,
@@ -1419,6 +1420,9 @@ export function HomeScreen({
                     {visibleRecommendationCount} Recs nearby
                   </Text>
                 </View>
+                <Pressable onPress={() => navigateToTab("profile")} style={{ backgroundColor: colors.surfaceMuted }} className="ml-1 h-8 w-8 items-center justify-center rounded-full">
+                  <SettingsIcon color={colors.icon} size={16} />
+                </Pressable>
                 <Pressable
                   onPress={() => setIsTopBarCollapsed((current) => !current)}
                   className="ml-1 rounded-full bg-slate-100 p-1.5"
@@ -1948,16 +1952,16 @@ export function HomeScreen({
             </Text>
           </Pressable>
           <Pressable
-            onPress={() => navigateToTab("profile")}
-            accessibilityLabel="Open settings"
+            onPress={() => { navigateToTab("map"); requestAnimationFrame(() => void openDiscover()); }}
+            accessibilityLabel="Open Discover"
             className="items-center pb-1"
           >
-            <SettingsIcon
-              color={activeTab === "profile" ? "#0F766E" : "#64748B"}
+            <Compass
+              color={isDiscoverOpen ? "#0F766E" : "#64748B"}
               size={21}
             />
             <Text style={isDark ? { color: colors.text } : undefined} className="mt-1 text-[10px] font-bold text-slate-500">
-              SETTINGS
+              DISCOVER
             </Text>
           </Pressable>
         </View>
