@@ -118,7 +118,7 @@ type FriendProfile = {
   friendCount: number;
   spots: Spot[];
 };
-type MapMode = "mine" | "friends";
+type MapMode = "mine" | "friends" | "public";
 
 const INITIAL_REGION: Region = {
   latitude: 51.5248,
@@ -300,6 +300,8 @@ export function HomeScreen({
   const [discoverIndex, setDiscoverIndex] = useState(0);
   const [discoverSpots, setDiscoverSpots] = useState<Spot[]>([]);
   const [isDiscoverLoading, setIsDiscoverLoading] = useState(false);
+  const [discoverAudience, setDiscoverAudience] = useState<"friends" | "public">("public");
+  const [discoverRadiusMiles, setDiscoverRadiusMiles] = useState<5 | 10 | 25>(5);
   const [activeTab, setActiveTab] = useState<AppTab>("map");
   const tabFade = useRef(new Animated.Value(1)).current;
   const [isPasswordOpen, setIsPasswordOpen] = useState(false);
@@ -480,12 +482,16 @@ export function HomeScreen({
     [mapFilters, session.token],
   );
 
-  const openDiscover = async () => {
+  const openDiscover = async (
+    audience = discoverAudience,
+    radiusMiles = discoverRadiusMiles,
+  ) => {
     setDiscoverIndex(0);
     setIsDiscoverOpen(true);
     if (!API_BASE_URL) return;
     setIsDiscoverLoading(true);
-    const params = new URLSearchParams({ mode: mapMode, latitude: String(region.latitude), longitude: String(region.longitude), latitudeDelta: String(region.latitudeDelta), longitudeDelta: String(region.longitudeDelta), cluster: "0", filters: mapFilters.join(",") });
+    const origin = userLocation ?? region;
+    const params = new URLSearchParams({ mode: audience, latitude: String(origin.latitude), longitude: String(origin.longitude), latitudeDelta: String(region.latitudeDelta), longitudeDelta: String(region.longitudeDelta), radiusMiles: String(radiusMiles), cluster: "0", filters: mapFilters.join(",") });
     try {
       const response = await fetch(`${API_BASE_URL}/api/spots?${params}`, { headers: { Authorization: `Bearer ${session.token}` } });
       if (!response.ok) return;
@@ -651,7 +657,7 @@ export function HomeScreen({
   };
 
   const openSpot = useCallback((spot: Spot) => {
-    setMapMode(spot.userId === session.user.id ? "mine" : "friends");
+    setMapMode(spot.userId === session.user.id ? "mine" : spot.visibility === "public" ? "public" : "friends");
     setSelectedSpot(spot);
     setIsTopBarCollapsed(true);
     setFeedbackRating(null);
@@ -1441,7 +1447,7 @@ export function HomeScreen({
             {!isTopBarCollapsed && (
               <View>
                 <View style={isDark ? { backgroundColor: colors.surfaceMuted } : undefined} className="mt-3 flex-row rounded-2xl bg-slate-100 p-1">
-                  {(["mine", "friends"] as MapMode[]).map((mode) => (
+                  {(["mine", "friends", "public"] as MapMode[]).map((mode) => (
                     <Pressable
                       key={mode}
                       onPress={() => setMapMode(mode)}
@@ -1450,7 +1456,7 @@ export function HomeScreen({
                       <Text style={isDark ? { color: colors.text } : undefined}
                         className={`text-center text-xs font-extrabold ${mapMode === mode ? "text-teal-700" : "text-slate-500"}`}
                       >
-                        {mode === "mine" ? "Mine" : "Friends"}
+                        {mode === "mine" ? "Mine" : mode === "friends" ? "Friends" : "Public"}
                       </Text>
                     </Pressable>
                   ))}
@@ -1713,12 +1719,12 @@ export function HomeScreen({
                       <Text style={isDark ? { color: colors.text } : undefined} className="font-extrabold text-teal-900">Sharing</Text>
                       <Text style={isDark ? { color: colors.text } : undefined} className="mt-0.5 text-xs text-teal-700">Choose who can see this recommendation.</Text>
                     </View>
-                    <Text style={isDark ? { color: colors.text } : undefined} className="text-xs font-bold text-teal-700">{selectedSpot.visibility === "friends" ? "Friends" : "Only me"}</Text>
+                    <Text style={isDark ? { color: colors.text } : undefined} className="text-xs font-bold text-teal-700">{selectedSpot.visibility === "private" ? "Only me" : selectedSpot.visibility === "friends" ? "Friends" : "Public"}</Text>
                   </View>
                   <View style={isDark ? { backgroundColor: colors.surface } : undefined} className="mt-3 flex-row rounded-xl bg-white p-1">
-                    {(["private", "friends"] as Visibility[]).map((option) => {
+                    {(["private", "friends", "public"] as Visibility[]).map((option) => {
                       const selected = selectedSpot.visibility === option;
-                      return <Pressable key={option} disabled={isUpdatingSharing} onPress={() => void updateSpotVisibility(option)} className={`flex-1 rounded-lg py-2.5 ${selected ? "bg-teal-700" : ""}`}><Text style={isDark ? { color: colors.text } : undefined} className={`text-center text-xs font-extrabold ${selected ? "text-white" : "text-slate-600"}`}>{option === "private" ? "Only me" : "Friends"}</Text></Pressable>;
+                      return <Pressable key={option} disabled={isUpdatingSharing} onPress={() => void updateSpotVisibility(option)} className={`flex-1 rounded-lg py-2.5 ${selected ? "bg-teal-700" : ""}`}><Text style={isDark ? { color: colors.text } : undefined} className={`text-center text-[10px] font-extrabold ${selected ? "text-white" : "text-slate-600"}`}>{option === "private" ? "Only me" : option === "friends" ? "Friends" : "Public"}</Text></Pressable>;
                     })}
                   </View>
                 </View>
@@ -1798,7 +1804,7 @@ export function HomeScreen({
                 </Pressable>
               )}
               {selectedSpot.userId !== session.user.id &&
-                selectedSpot.visibility === "friends" && (
+                selectedSpot.visibility !== "private" && (
                   <View className="mt-4 rounded-2xl bg-teal-50 p-4">
                     <Text style={isDark ? { color: colors.text } : undefined} className="font-extrabold text-teal-900">
                       What do you think?
@@ -1998,8 +2004,16 @@ export function HomeScreen({
         <View style={{ flex: 1, backgroundColor: colors.background }}>
           <SafeAreaView edges={[]} style={{ paddingTop: tabTopInset, backgroundColor: colors.background }} className="flex-1">
             <View className="flex-row items-center justify-between px-5 pb-3 pt-5">
-              <View><Text style={{ color: colors.text }} className="text-2xl font-extrabold">Discover</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm">Places from this part of the map</Text></View>
+              <View><Text style={{ color: colors.text }} className="text-2xl font-extrabold">Discover</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm">{userLocation ? `Within ${discoverRadiusMiles} miles of you` : "Using this part of the map"}</Text></View>
               <Pressable onPress={() => setIsDiscoverOpen(false)} style={{ backgroundColor: colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-full"><X color={colors.icon} size={22} /></Pressable>
+            </View>
+            <View className="px-5 pb-3">
+              <View style={{ backgroundColor: colors.surfaceMuted }} className="flex-row rounded-2xl p-1">
+                {(["friends", "public"] as const).map((audience) => <Pressable key={audience} onPress={() => { setDiscoverAudience(audience); void openDiscover(audience); }} style={discoverAudience === audience ? { backgroundColor: colors.surface } : undefined} className="flex-1 rounded-xl py-2.5"><Text style={{ color: discoverAudience === audience ? "#0F766E" : colors.muted }} className="text-center text-xs font-extrabold">{audience === "friends" ? "Friends' picks" : "Public near you"}</Text></Pressable>)}
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingTop: 10 }}>
+                {([5, 10, 25] as const).map((miles) => <Pressable key={miles} onPress={() => { setDiscoverRadiusMiles(miles); void openDiscover(discoverAudience, miles); }} style={{ backgroundColor: discoverRadiusMiles === miles ? "#0F766E" : colors.surfaceMuted }} className="rounded-full px-4 py-2"><Text style={{ color: discoverRadiusMiles === miles ? "white" : colors.muted }} className="text-xs font-extrabold">Within {miles} mi</Text></Pressable>)}
+              </ScrollView>
             </View>
             {isDiscoverLoading ? (
               <View className="flex-1 items-center justify-center"><ActivityIndicator color="#0F766E" size="large" /><Text style={{ color: colors.muted }} className="mt-4 font-bold">Finding your next picks…</Text></View>
@@ -2015,7 +2029,7 @@ export function HomeScreen({
                       <View className="flex-1 p-5">
                         <View className="flex-row items-start justify-between"><View className="mr-3 flex-1"><Text style={{ color: colors.text }} numberOfLines={2} className="text-2xl font-extrabold leading-7">{spot.name}</Text><Text style={{ color: categoryColors[spot.category] }} className="mt-2 text-sm font-extrabold">{spot.category} · {spot.personalRating}/5</Text></View><Pressable onPress={() => toggleSaved(spot)} style={{ backgroundColor: savedSpots.some((saved) => saved.id === spot.id) ? "#FBBF24" : colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-2xl"><Bookmark color={savedSpots.some((saved) => saved.id === spot.id) ? "white" : "#0F766E"} size={21} fill={savedSpots.some((saved) => saved.id === spot.id) ? "white" : "transparent"} /></Pressable></View>
                         <Text style={{ color: colors.muted }} numberOfLines={2} className="mt-3 text-sm leading-5">{spot.description || spot.note || spot.address}</Text>
-                        <View className="mt-4 flex-1"><View className="flex-row items-center justify-between"><Text style={{ color: colors.muted }} className="text-xs font-bold">FROM THE CIRCLE</Text><Text style={{ color: categoryColors[spot.category] }} className="text-xs font-extrabold">{spot.communityRatingCount ? `${spot.communityRating?.toFixed(1)}/5 from friends` : "New recommendation"}</Text></View>{spot.comments?.filter((comment) => comment.comment.trim()).slice(0, 2).map((comment) => <View key={comment.id} style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl p-3"><View className="flex-row items-center justify-between"><Text style={{ color: colors.text }} className="font-extrabold">@{comment.user.username}</Text><Text style={{ color: "#D97706" }} className="text-xs font-extrabold">★ {comment.rating}/5</Text></View><Text style={{ color: colors.muted }} numberOfLines={2} className="mt-1 text-sm leading-5">“{comment.comment}”</Text></View>) ?? null}{!spot.comments?.some((comment) => comment.comment.trim()) && <View style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl p-3"><Text style={{ color: colors.text }} className="font-bold">{spot.pinnedBy || "Someone in your circle"} recommends this</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm">Open it on the map to add your own rating or comment.</Text></View>}</View>
+                        <View className="mt-4 flex-1"><View className="flex-row items-center justify-between"><Text style={{ color: colors.muted }} className="text-xs font-bold">{discoverAudience === "public" ? "FROM THE COMMUNITY" : "FROM THE CIRCLE"}</Text><Text style={{ color: categoryColors[spot.category] }} className="text-xs font-extrabold">{spot.communityRatingCount ? `${spot.communityRating?.toFixed(1)}/5 from ${discoverAudience === "public" ? "the community" : "friends"}` : "New recommendation"}</Text></View>{spot.comments?.filter((comment) => comment.comment.trim()).slice(0, 2).map((comment) => <View key={comment.id} style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl p-3"><View className="flex-row items-center justify-between"><Text style={{ color: colors.text }} className="font-extrabold">@{comment.user.username}</Text><Text style={{ color: "#D97706" }} className="text-xs font-extrabold">★ {comment.rating}/5</Text></View><Text style={{ color: colors.muted }} numberOfLines={2} className="mt-1 text-sm leading-5">“{comment.comment}”</Text></View>) ?? null}{!spot.comments?.some((comment) => comment.comment.trim()) && <View style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl p-3"><Text style={{ color: colors.text }} className="font-bold">{spot.pinnedBy || (discoverAudience === "public" ? "Someone nearby" : "Someone in your circle")} recommends this</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm">Open it on the map to add your own rating or comment.</Text></View>}</View>
                         <View className="mt-4"><Text style={{ color: colors.muted }} className="mb-2 text-center text-xs font-bold">{index < discoverableSpots.length - 1 ? "Swipe up for the next pick" : "You’ve seen every nearby pick"}</Text><View className="flex-row gap-2"><Pressable onPress={() => getDirections(spot)} className="flex-1 rounded-2xl bg-slate-900 py-3.5"><Text className="text-center font-extrabold text-white">Directions</Text></Pressable><Pressable onPress={() => { setIsDiscoverOpen(false); navigateToTab("map"); requestAnimationFrame(() => openSpot(spot)); }} className="flex-1 rounded-2xl bg-teal-700 py-3.5"><Text className="text-center font-extrabold text-white">See on map</Text></Pressable></View>{index < discoverableSpots.length - 1 ? <Pressable onPress={() => { const next = index + 1; discoverPagerRef.current?.scrollTo({ y: next * discoverPageHeight, animated: true }); setDiscoverIndex(next); }} style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl py-3"><Text style={{ color: colors.text }} className="text-center text-sm font-extrabold">Next pick</Text></Pressable> : null}</View>
                       </View>
                     </View>
@@ -2279,7 +2293,7 @@ export function HomeScreen({
                         Who can see this pin?
                       </Text>
                       <View className="flex-row gap-2">
-                        {(["private", "friends"] as Visibility[]).map(
+                        {(["private", "friends", "public"] as Visibility[]).map(
                           (option) => (
                             <Pressable
                               key={option}
@@ -2290,7 +2304,7 @@ export function HomeScreen({
                               <Text style={isDark ? { color: colors.text } : undefined}
                                 className={`text-center text-xs font-extrabold ${visibility === option ? "text-white" : "text-slate-600"}`}
                               >
-                                {option === "private" ? "Just me" : "Friends"}
+                                {option === "private" ? "Just me" : option === "friends" ? "Friends" : "Public"}
                               </Text>
                             </Pressable>
                           ),

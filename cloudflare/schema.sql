@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS spots (
   google_rating REAL NOT NULL DEFAULT 0,
   personal_rating REAL NOT NULL,
   description TEXT NOT NULL DEFAULT '',
-  visibility TEXT NOT NULL CHECK (visibility IN ('private', 'friends')),
+  visibility TEXT NOT NULL CHECK (visibility IN ('private', 'friends', 'public')),
   google_place_id TEXT,
   created_at TEXT NOT NULL
 );

@@ -1,7 +1,7 @@
 export type Category = "Coffee" | "Restaurant" | "Pub" | "Cocktail Bar" | "Bakery" | "Brunch" | "Padel" | "Tennis" | "Football" | "Gym" | "Bouldering" | "Yoga" | "Pilates" | "Running" | "Cycling" | "Swimming" | "Golf" | "Cinema" | "Live Music" | "Theatre" | "Museum" | "Art Gallery" | "Gaming" | "Shopping" | "Market" | "Park" | "Walk" | "Wellness" | "Other";
 
 export interface User { id: string; username: string; handle: string; name: string; email: string; photoUri?: string | null; }
-export type Visibility = "private" | "friends";
+export type Visibility = "private" | "friends" | "public";
 export interface SpotComment { id: string; userId: string; user: User; rating: number; comment: string; createdAt: string; photoUri?: string | null; }
 export interface SpotPhoto { id: string; uri: string; userId: string; user: User; }
 
