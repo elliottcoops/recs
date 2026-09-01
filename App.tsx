@@ -9,9 +9,14 @@ import { View } from "react-native";
 import { User } from "./src/data/mockData";
 import { AuthScreen } from "./src/screens/AuthScreen";
 import { HomeScreen } from "./src/screens/HomeScreen";
-import { ThemeProvider } from "./src/theme";
+import { ThemeProvider, useTheme } from "./src/theme";
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "");
+
+function ThemedStatusBar() {
+  const { isDark, colors } = useTheme();
+  return <StatusBar style={isDark ? "light" : "dark"} backgroundColor={colors.background} />;
+}
 
 export default function App() {
   const [session, setSession] = useState<{ token: string; user: User } | null>(null);
@@ -32,5 +37,5 @@ export default function App() {
     await SecureStore.setItemAsync("spotcheck-session", JSON.stringify(nextSession));
     setSession(nextSession);
   };
-  return <GestureHandlerRootView style={{ flex: 1 }}><SafeAreaProvider initialMetrics={initialWindowMetrics}><ThemeProvider><StatusBar style="dark" />{isRestoring ? <View className="flex-1 bg-teal-700" /> : session ? <HomeScreen session={session} onSignOut={signOut} onSessionUserUpdated={updateSessionUser} /> : <AuthScreen onAuthenticated={signIn} />}</ThemeProvider></SafeAreaProvider></GestureHandlerRootView>;
+  return <GestureHandlerRootView style={{ flex: 1 }}><SafeAreaProvider initialMetrics={initialWindowMetrics}><ThemeProvider><ThemedStatusBar />{isRestoring ? <View className="flex-1 bg-teal-700" /> : session ? <HomeScreen session={session} onSignOut={signOut} onSessionUserUpdated={updateSessionUser} /> : <AuthScreen onAuthenticated={signIn} />}</ThemeProvider></SafeAreaProvider></GestureHandlerRootView>;
 }
