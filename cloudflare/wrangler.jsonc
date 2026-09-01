@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "recs-api",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-08-31",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "recs-db",
+      "database_id": "a333f48e-5593-49f0-8a64-d986b60e12c1"
+    }
+  ]
+}

@@ -9,6 +9,7 @@ import { View } from "react-native";
 import { User } from "./src/data/mockData";
 import { AuthScreen } from "./src/screens/AuthScreen";
 import { HomeScreen } from "./src/screens/HomeScreen";
+import { ThemeProvider } from "./src/theme";
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "");
 
@@ -25,5 +26,11 @@ export default function App() {
   }, []);
   const signIn = async (nextSession: { token: string; user: User }) => { await SecureStore.setItemAsync("spotcheck-session", JSON.stringify(nextSession)); setSession(nextSession); };
   const signOut = async () => { await SecureStore.deleteItemAsync("spotcheck-session"); setSession(null); };
-  return <GestureHandlerRootView style={{ flex: 1 }}><SafeAreaProvider initialMetrics={initialWindowMetrics}><StatusBar style="dark" />{isRestoring ? <View className="flex-1 bg-teal-700" /> : session ? <HomeScreen session={session} onSignOut={signOut} /> : <AuthScreen onAuthenticated={signIn} />}</SafeAreaProvider></GestureHandlerRootView>;
+  const updateSessionUser = async (user: User) => {
+    if (!session) return;
+    const nextSession = { ...session, user };
+    await SecureStore.setItemAsync("spotcheck-session", JSON.stringify(nextSession));
+    setSession(nextSession);
+  };
+  return <GestureHandlerRootView style={{ flex: 1 }}><SafeAreaProvider initialMetrics={initialWindowMetrics}><ThemeProvider><StatusBar style="dark" />{isRestoring ? <View className="flex-1 bg-teal-700" /> : session ? <HomeScreen session={session} onSignOut={signOut} onSessionUserUpdated={updateSessionUser} /> : <AuthScreen onAuthenticated={signIn} />}</ThemeProvider></SafeAreaProvider></GestureHandlerRootView>;
 }

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "SpotCheck",
-    "slug": "spotcheck",
+    "slug": "recs",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -18,14 +18,23 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "SpotCheck uses your location to show nearby venues and directions."
-      }
+        "NSLocationWhenInUseUsageDescription": "SpotCheck uses your location to show nearby venues and directions.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.elliottcoopssteam.recs"
     },
     "android": {
       "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO"
       ]
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "7594ab99-d2f1-4861-b62c-ff328f8e3093"
+      }
+    },
+    "owner": "elliottcoopss-team"
   }
 }
