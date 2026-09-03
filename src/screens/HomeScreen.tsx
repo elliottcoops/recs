@@ -388,15 +388,17 @@ export function HomeScreen({
   const upcomingPlans = plans.filter(
     (plan) => new Date(plan.scheduledAt).getTime() > Date.now(),
   );
-  const plannerDays = Array.from({ length: 21 }, (_, index) => {
+  const plannerDays = Array.from({ length: 7 }, (_, index) => {
     const date = new Date();
     date.setHours(12, 0, 0, 0);
     date.setDate(date.getDate() + index);
     return date;
   });
-  const activePlannerDate = selectedPlannerDate ?? (upcomingPlans[0] ? calendarKey(upcomingPlans[0].scheduledAt) : calendarKey(new Date()));
+  const activePlannerDate = selectedPlannerDate ?? calendarKey(new Date());
   const selectedDayPlans = upcomingPlans.filter((plan) => calendarKey(plan.scheduledAt) === activePlannerDate);
   const activePlannerLabel = activePlannerDate === calendarKey(new Date()) ? "Today" : new Date(`${activePlannerDate}T12:00:00`).toLocaleDateString([], { weekday: "long", day: "numeric", month: "short" });
+  const nextPlan = upcomingPlans[0] ?? null;
+  const remainingPlans = upcomingPlans.filter((plan) => plan.id !== nextPlan?.id);
   const [scheduledAt, setScheduledAt] = useState(
     () => new Date(Date.now() + 60 * 60 * 1000),
   );
@@ -2241,7 +2243,7 @@ export function HomeScreen({
               <View><Text style={{ color: colors.text }} className="text-2xl font-extrabold">Discover</Text><Text style={{ color: colors.muted }} className="mt-0.5 text-sm">Recommendations picked for your area</Text></View>
               <Pressable onPress={() => navigateToTab("map")} style={{ backgroundColor: colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-full"><X color={colors.icon} size={22} /></Pressable>
             </View>
-            <View className="px-5 pb-2 pt-1">
+            <View className="relative px-5 pb-2 pt-1">
               <Pressable
                 accessibilityLabel="Choose the area for Discover"
                 onPress={() => setIsDiscoverLocationPickerOpen(true)}
@@ -2256,7 +2258,7 @@ export function HomeScreen({
                 <Text style={{ color: colors.muted }} className="text-xs font-semibold">Local picks, including your circle</Text>
                 <Pressable onPress={() => setIsDiscoverDistancePickerOpen((current) => !current)} style={{ backgroundColor: colors.surfaceMuted }} className="flex-row items-center rounded-xl px-3 py-2"><Text style={{ color: "#0F766E" }} className="text-xs font-extrabold">{discoverRadiusMiles} mi</Text><ChevronDown color="#0F766E" size={14} style={{ marginLeft: 3, transform: [{ rotate: isDiscoverDistancePickerOpen ? "180deg" : "0deg" }] }} /></Pressable>
               </View>
-              {isDiscoverDistancePickerOpen && <View style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl px-3 pb-2 pt-3"><View className="flex-row items-center justify-between"><Text style={{ color: colors.muted }} className="text-xs font-bold">Show places up to</Text><Text style={{ color: "#0F766E" }} className="text-sm font-extrabold">{discoverRadiusMiles} {discoverRadiusMiles === 1 ? "mile" : "miles"}</Text></View><View className="mt-1 flex-row items-center"><Text style={{ color: colors.muted }} className="mr-1 text-[10px] font-semibold">1</Text><Slider value={discoverRadiusMiles} minimumValue={1} maximumValue={25} step={1} minimumTrackTintColor="#0F766E" maximumTrackTintColor={colors.border} thumbTintColor="#0F766E" onValueChange={(value) => setDiscoverRadiusMiles(Math.round(value))} onSlidingComplete={(value) => { const miles = Math.round(value); setDiscoverRadiusMiles(miles); void openDiscover(miles); }} style={{ flex: 1, height: 28 }} accessibilityLabel="Maximum Discover distance" /><Text style={{ color: colors.muted }} className="ml-1 text-[10px] font-semibold">25</Text></View></View>}
+              {isDiscoverDistancePickerOpen && <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border, position: "absolute", left: 20, right: 20, top: 96, zIndex: 20, elevation: 20 }} className="rounded-2xl border px-3 pb-2 pt-3 shadow-lg"><View className="flex-row items-center justify-between"><Text style={{ color: colors.muted }} className="text-xs font-bold">Show places up to</Text><Text style={{ color: "#0F766E" }} className="text-sm font-extrabold">{discoverRadiusMiles} {discoverRadiusMiles === 1 ? "mile" : "miles"}</Text></View><View className="mt-1 flex-row items-center"><Text style={{ color: colors.muted }} className="mr-1 text-[10px] font-semibold">1</Text><Slider value={discoverRadiusMiles} minimumValue={1} maximumValue={25} step={1} minimumTrackTintColor="#0F766E" maximumTrackTintColor={colors.border} thumbTintColor="#0F766E" onValueChange={(value) => setDiscoverRadiusMiles(Math.round(value))} onSlidingComplete={(value) => { const miles = Math.round(value); setDiscoverRadiusMiles(miles); void openDiscover(miles); }} style={{ flex: 1, height: 28 }} accessibilityLabel="Maximum Discover distance" /><Text style={{ color: colors.muted }} className="ml-1 text-[10px] font-semibold">25</Text></View></View>}
             </View>
             {isDiscoverLoading ? (
               <View className="flex-1 items-center justify-center"><ActivityIndicator color="#0F766E" size="large" /><Text style={{ color: colors.muted }} className="mt-4 font-bold">Finding your next picks…</Text></View>
@@ -2989,42 +2991,27 @@ export function HomeScreen({
                 )}
                 </>}
                 {friendsView === "plans" && <>
-                <View className="mb-3 mt-7 flex-row items-center justify-between">
-                  <View className="flex-row items-center">
-                    <View className="mr-2 h-8 w-8 items-center justify-center rounded-xl bg-teal-50">
-                      <CalendarPlus color="#0F766E" size={16} />
-                    </View>
-                    <View>
-                      <Text style={isDark ? { color: colors.text } : undefined} className="font-extrabold text-slate-900">Plans</Text>
-                      <Text style={isDark ? { color: colors.text } : undefined} className="text-xs text-slate-500">What’s coming up</Text>
-                    </View>
-                  </View>
-                  {upcomingPlans.length ? (
-                    <View className="rounded-full bg-teal-50 px-2.5 py-1">
-                      <Text style={isDark ? { color: colors.text } : undefined} className="text-xs font-extrabold text-teal-700">
-                        {upcomingPlans.length}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4" contentContainerStyle={{ paddingRight: 8 }}>
+                <View className="mb-4 mt-7 flex-row items-center justify-between"><View className="flex-row items-center"><View style={{ backgroundColor: colors.surfaceMuted }} className="mr-2 h-9 w-9 items-center justify-center rounded-xl"><CalendarPlus color="#0F766E" size={17} /></View><View><Text style={{ color: colors.text }} className="font-extrabold">Plans</Text><Text style={{ color: colors.muted }} className="text-xs">Your next moments together</Text></View></View>{upcomingPlans.length ? <View style={{ backgroundColor: colors.surfaceMuted }} className="rounded-full px-2.5 py-1"><Text style={{ color: "#0F766E" }} className="text-xs font-extrabold">{upcomingPlans.length} upcoming</Text></View> : null}</View>
+                {nextPlan ? (() => { const mine = nextPlan.hostId === session.user.id; const invite = nextPlan.invites.find((item) => item.userId === session.user.id); const going = nextPlan.invites.filter((item) => item.status === "accepted").length + 1; const accent = categoryColors[nextPlan.spot?.category as Category] ?? "#0F766E"; return <Pressable onPress={() => setSelectedPlan(nextPlan)} style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="mb-5 overflow-hidden rounded-[28px] border"><View style={{ backgroundColor: `${accent}22` }} className="flex-row items-center px-4 py-3"><View style={{ backgroundColor: accent }} className="h-11 w-11 items-center justify-center rounded-2xl">{categoryIcon(nextPlan.spot?.category as Category ?? "Other", "white", 21)}</View><View className="ml-3 flex-1"><Text style={{ color: colors.text }} className="text-xs font-extrabold uppercase tracking-wide">Next up</Text><Text style={{ color: colors.muted }} numberOfLines={1} className="mt-0.5 text-xs">{formatPlanDate(nextPlan.scheduledAt, "full")}</Text></View><View style={{ backgroundColor: colors.surface }} className="rounded-xl px-2.5 py-1.5"><Text style={{ color: accent }} className="text-xs font-extrabold">{going} going</Text></View></View><View className="p-4"><Text style={{ color: colors.text }} numberOfLines={1} className="text-xl font-extrabold">{nextPlan.spot?.name ?? "Place"}</Text><Text style={{ color: colors.muted }} numberOfLines={1} className="mt-1 text-sm">{nextPlan.spot?.address ?? "Details available in plan"}</Text><View className="mt-4 flex-row items-center justify-between"><Text style={{ color: mine ? "#0F766E" : colors.muted }} className="text-sm font-bold">{mine ? "You’re hosting" : invite?.status === "pending" ? `Invited by @${nextPlan.host?.username ?? "friend"}` : `You’re ${invite?.status}`}</Text><View className="flex-row items-center"><Text style={{ color: colors.muted }} className="mr-1 text-xs font-bold">View plan</Text><ChevronDown color={colors.icon} size={17} style={{ transform: [{ rotate: "-90deg" }] }} /></View></View>{!mine && invite?.status === "pending" ? <View className="mt-4 flex-row gap-2"><Pressable onPress={() => respondToPlan(nextPlan.id, "accepted")} className="flex-1 rounded-xl bg-teal-700 py-3"><Text className="text-center text-sm font-extrabold text-white">I’m in</Text></Pressable><Pressable onPress={() => respondToPlan(nextPlan.id, "maybe")} style={{ backgroundColor: colors.surfaceMuted }} className="flex-1 rounded-xl py-3"><Text style={{ color: colors.text }} className="text-center text-sm font-extrabold">Maybe</Text></Pressable></View> : null}</View></Pressable>; })() : <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border }} className="mb-5 rounded-3xl border border-dashed p-5"><Text style={{ color: colors.text }} className="font-extrabold">Nothing in the diary yet</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm leading-5">Open a recommendation to make a plan with friends.</Text></View>}
+                <View className="mb-3 flex-row items-center justify-between"><Text style={{ color: colors.text }} className="text-sm font-extrabold">This week</Text><Text style={{ color: colors.muted }} className="text-xs font-bold">Tap a day</Text></View>
+                <View className="mb-5 flex-row justify-between">
                   {plannerDays.map((day) => {
                     const key = calendarKey(day);
                     const count = upcomingPlans.filter((plan) => calendarKey(plan.scheduledAt) === key).length;
                     const selected = key === activePlannerDate;
-                    return <Pressable key={key} onPress={() => setSelectedPlannerDate(key)} style={{ backgroundColor: selected ? "#0F766E" : colors.surface, borderColor: selected ? "#0F766E" : colors.border }} className="mr-2 h-[66px] w-[52px] items-center justify-center rounded-2xl border">
+                    return <Pressable key={key} onPress={() => setSelectedPlannerDate(key)} style={{ backgroundColor: selected ? "#0F766E" : colors.surface, borderColor: selected ? "#0F766E" : colors.border }} className="h-[62px] w-[45px] items-center justify-center rounded-2xl border">
                       <Text style={{ color: selected ? "#CCFBF1" : colors.muted }} className="text-[10px] font-extrabold uppercase">{day.toLocaleDateString([], { weekday: "short" })}</Text>
                       <Text style={{ color: selected ? "#FFFFFF" : colors.text }} className="mt-0.5 text-base font-extrabold">{day.getDate()}</Text>
                       <View style={{ backgroundColor: count ? (selected ? "#FFFFFF" : "#14B8A6") : "transparent" }} className="mt-1 h-1.5 w-1.5 rounded-full" />
                     </Pressable>;
                   })}
-                </ScrollView>
+                </View>
                 <View className="mb-3 flex-row items-center justify-between">
                   <Text style={{ color: colors.text }} className="text-sm font-extrabold">{activePlannerLabel}</Text>
                   <Text style={{ color: colors.muted }} className="text-xs font-bold">{selectedDayPlans.length ? `${selectedDayPlans.length} plan${selectedDayPlans.length === 1 ? "" : "s"}` : "Free day"}</Text>
                 </View>
-                {selectedDayPlans.length ? (
-                  selectedDayPlans.map((plan) => {
+                {selectedDayPlans.filter((plan) => plan.id !== nextPlan?.id).length ? (
+                  selectedDayPlans.filter((plan) => plan.id !== nextPlan?.id).map((plan) => {
                     const mine = plan.hostId === session.user.id;
                     const invite = plan.invites.find(
                       (item) => item.userId === session.user.id,
@@ -3033,10 +3020,11 @@ export function HomeScreen({
                       <Pressable
                         key={plan.id}
                         onPress={() => setSelectedPlan(plan)}
-                        className="mb-3 overflow-hidden rounded-3xl border border-slate-100 bg-slate-50 p-4"
+                        style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+                        className="mb-3 overflow-hidden rounded-2xl border p-3"
                       >
                         <View className="flex-row items-start">
-                          <View style={isDark ? { backgroundColor: colors.surface } : undefined} className="h-11 w-11 items-center justify-center rounded-2xl bg-white">
+                          <View style={{ backgroundColor: colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-2xl">
                             <CalendarPlus color="#0F766E" size={19} />
                           </View>
                           <View className="ml-3 flex-1">
@@ -3096,19 +3084,13 @@ export function HomeScreen({
                       </Pressable>
                     );
                   })
-                ) : upcomingPlans.length ? (
+                ) : (
                   <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border }} className="rounded-2xl border border-dashed p-4">
                     <Text style={{ color: colors.text }} className="font-bold">Nothing planned for {activePlannerLabel.toLowerCase()}</Text>
                     <Text style={{ color: colors.muted }} className="mt-1 text-sm leading-5">Choose another highlighted day to see a plan, or make one from a recommendation.</Text>
                   </View>
-                ) : (
-                  <View style={isDark ? { backgroundColor: colors.surfaceMuted } : undefined} className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4">
-                    <Text style={isDark ? { color: colors.text } : undefined} className="font-bold text-slate-700">Nothing planned yet</Text>
-                    <Text style={isDark ? { color: colors.text } : undefined} className="mt-1 text-sm leading-5 text-slate-500">
-                      Open a recommendation to make a plan with friends.
-                    </Text>
-                  </View>
                 )}
+                {remainingPlans.length ? <><View className="mb-3 mt-6 flex-row items-center justify-between"><Text style={{ color: colors.text }} className="text-sm font-extrabold">Coming up</Text><Text style={{ color: colors.muted }} className="text-xs font-bold">{remainingPlans.length} more</Text></View>{remainingPlans.slice(0, 3).map((plan) => <Pressable key={plan.id} onPress={() => setSelectedPlan(plan)} style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="mb-2 flex-row items-center rounded-2xl border p-3"><View style={{ backgroundColor: colors.surfaceMuted }} className="h-10 w-10 items-center justify-center rounded-xl"><Text style={{ color: "#0F766E" }} className="text-xs font-extrabold">{new Date(plan.scheduledAt).getDate()}</Text><Text style={{ color: colors.muted }} className="text-[9px] font-bold uppercase">{new Date(plan.scheduledAt).toLocaleDateString([], { month: "short" })}</Text></View><View className="ml-3 flex-1"><Text style={{ color: colors.text }} numberOfLines={1} className="font-extrabold">{plan.spot?.name ?? "Place"}</Text><Text style={{ color: colors.muted }} numberOfLines={1} className="mt-0.5 text-xs">{formatPlanDate(plan.scheduledAt)}</Text></View><ChevronDown color={colors.muted} size={16} style={{ transform: [{ rotate: "-90deg" }] }} /></Pressable>)}</> : null}
                 </>}
                 {friendsView === "activity" && <>
                   <View className="mb-3 mt-7 flex-row items-center justify-between"><View className="flex-row items-center"><View style={{ backgroundColor: colors.surfaceMuted }} className="mr-2 h-8 w-8 items-center justify-center rounded-xl"><Bell color="#0F766E" size={16} /></View><View><Text style={{ color: colors.text }} className="font-extrabold">Updates</Text><Text style={{ color: colors.muted }} className="text-xs">What’s new in your circle</Text></View></View>{activity.length ? <View style={{ backgroundColor: colors.surfaceMuted }} className="rounded-full px-2.5 py-1"><Text style={{ color: colors.text }} className="text-xs font-extrabold">{activity.length}</Text></View> : null}</View>
