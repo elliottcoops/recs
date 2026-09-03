@@ -3175,8 +3175,8 @@ export function HomeScreen({
           if (!isFriendProfileLoading) setSelectedFriendProfile(null);
         }}
       >
-        <View className="flex-1 justify-end bg-black/40">
-          <View style={isDark ? { backgroundColor: colors.surface } : undefined} className="max-h-[86%] rounded-t-[32px] bg-white px-5 pb-10 pt-4">
+        <View className="flex-1 justify-center bg-black/40 px-5">
+          <View style={{ backgroundColor: colors.surface }} className="max-h-[84%] rounded-3xl p-5">
             {isFriendProfileLoading ? (
               <View className="items-center py-12">
                 <ActivityIndicator color="#0F766E" size="large" />
@@ -3187,7 +3187,6 @@ export function HomeScreen({
             ) : (
               selectedFriendProfile && (
                 <ScrollView showsVerticalScrollIndicator={false}>
-                  <View className="mb-5 h-1.5 w-11 self-center rounded-full bg-slate-200" />
                   <View className="flex-row items-start justify-between">
                     <View className="flex-row items-center">
                       <View className="h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-teal-100 bg-teal-700">
@@ -3222,9 +3221,10 @@ export function HomeScreen({
                     <Pressable
                       accessibilityLabel="Close friend profile"
                       onPress={() => setSelectedFriendProfile(null)}
-                      className="rounded-full bg-slate-100 p-2"
+                      style={{ backgroundColor: colors.surfaceMuted }}
+                      className="rounded-full p-2"
                     >
-                      <X color="#334155" size={20} />
+                      <X color={colors.icon} size={20} />
                     </Pressable>
                   </View>
                   <View style={isDark ? { backgroundColor: colors.surfaceMuted } : undefined} className="mt-6 flex-row rounded-2xl bg-slate-100 px-4 py-4">
