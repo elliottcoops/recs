@@ -1010,6 +1010,66 @@ export function HomeScreen({
     }
   };
 
+  const rejectFriendRequest = async (id: string) => {
+    if (!API_BASE_URL) return;
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/friends/requests/${id}`,
+        { method: "DELETE", headers: { Authorization: `Bearer ${session.token}` } },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(body.error ?? "Could not reject friend request.");
+      setIncomingRequests((current) => current.filter((request) => request.id !== id));
+      setFriendError("Friend request declined.");
+      selectionHaptic();
+      await loadFriends();
+    } catch (reason) {
+      Alert.alert(
+        "Could not reject request",
+        reason instanceof Error ? reason.message : "Please try again.",
+      );
+    }
+  };
+
+  const removeFriend = (friend: User) =>
+    Alert.alert(
+      `Remove ${friend.name}?`,
+      "Their friends-only recommendations will disappear. Shared saves and invitations between you will also be removed. Public places remain available in Discover.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove friend",
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              if (!API_BASE_URL) return;
+              try {
+                const response = await fetch(
+                  `${API_BASE_URL}/api/friends/${encodeURIComponent(friend.id)}`,
+                  { method: "DELETE", headers: { Authorization: `Bearer ${session.token}` } },
+                );
+                const body = await response.json().catch(() => ({}));
+                if (!response.ok)
+                  throw new Error(body.error ?? "Could not remove friend.");
+                setFriends((current) => current.filter((item) => item.id !== friend.id));
+                setSelectedFriendProfile(null);
+                setSelectedSpot(null);
+                setFriendError(`${friend.name} was removed from your circle.`);
+                selectionHaptic();
+                await Promise.all([loadFriends(), loadSaved(), loadPlans(), loadSpots(region, mapMode)]);
+              } catch (reason) {
+                Alert.alert(
+                  "Could not remove friend",
+                  reason instanceof Error ? reason.message : "Please try again.",
+                );
+              }
+            })();
+          },
+        },
+      ],
+    );
+
   const openFriendProfile = async (friend: User) => {
     if (!API_BASE_URL) return;
     setIsFriendProfileLoading(true);
@@ -2868,15 +2928,23 @@ export function HomeScreen({
                           <Text style={isDark ? { color: colors.text } : undefined} className="text-sm text-slate-500">@{request.user.username}</Text>
                         </View>
                       </View>
-                      <Pressable
-                        onPress={() => acceptFriendRequest(request.id)}
-                        className="flex-row items-center rounded-xl bg-teal-700 px-3 py-2"
-                      >
-                        <Check color="white" size={16} />
-                        <Text style={isDark ? { color: colors.text } : undefined} className="ml-1 font-bold text-white">
-                          Accept
-                        </Text>
-                      </Pressable>
+                      <View className="ml-3 flex-row gap-2">
+                        <Pressable
+                          accessibilityLabel={`Reject ${request.user.name}'s friend request`}
+                          onPress={() => rejectFriendRequest(request.id)}
+                          className="items-center justify-center rounded-xl bg-slate-200 px-2.5 py-2"
+                        >
+                          <X color={isDark ? colors.icon : "#475569"} size={16} />
+                        </Pressable>
+                        <Pressable
+                          accessibilityLabel={`Accept ${request.user.name}'s friend request`}
+                          onPress={() => acceptFriendRequest(request.id)}
+                          className="flex-row items-center rounded-xl bg-teal-700 px-3 py-2"
+                        >
+                          <Check color="white" size={16} />
+                          <Text className="ml-1 font-bold text-white">Accept</Text>
+                        </Pressable>
+                      </View>
                     </View>
                   ))
                 ) : (
@@ -3215,6 +3283,16 @@ export function HomeScreen({
                       </Text>
                     </View>
                   )}
+                  <Pressable
+                    accessibilityLabel={`Remove ${selectedFriendProfile.user.name} from your friends`}
+                    onPress={() => removeFriend(selectedFriendProfile.user)}
+                    className="mt-6 flex-row items-center justify-center rounded-2xl bg-rose-50 py-3.5"
+                  >
+                    <Trash2 color="#E11D48" size={17} />
+                    <Text style={{ color: "#E11D48" }} className="ml-2 font-extrabold">
+                      Remove friend
+                    </Text>
+                  </Pressable>
                 </ScrollView>
               )
             )}
