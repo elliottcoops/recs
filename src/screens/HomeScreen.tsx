@@ -2989,39 +2989,30 @@ export function HomeScreen({
                   </View>
                 </View>
                 {friends.length ? (
-                  friends.map((friend) => (
+                  <View className="flex-row flex-wrap justify-between">{friends.map((friend) => (
                     <Pressable
                       key={friend.id}
                       accessibilityLabel={`Open ${friend.name}'s profile`}
                       onPress={() => void openFriendProfile(friend)}
-                      style={{ backgroundColor: isDark ? colors.surface : "#FFFFFF", borderColor: colors.border }}
-                      className="mb-3 flex-row items-center rounded-2xl border border-slate-100 bg-white p-3 shadow-sm"
+                      style={{ width: "48.5%", aspectRatio: 1, backgroundColor: colors.surface, borderColor: colors.border }}
+                      className="mb-3 items-center justify-center overflow-hidden rounded-3xl border p-4"
                     >
-                      <View className="h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-teal-700">
+                      <View style={{ backgroundColor: "#0F766E" }} className="h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-teal-50">
                         {friend.photoUri ? (
                           <NativeImage
                             source={{ uri: friend.photoUri }}
-                            style={styles.friendAvatar}
+                            style={{ width: "100%", height: "100%" }}
                           />
                         ) : (
-                          <Text style={isDark ? { color: colors.text } : undefined} className="text-lg font-extrabold text-white">
+                          <Text className="text-3xl font-extrabold text-white">
                             {friend.name.trim().slice(0, 1).toUpperCase()}
                           </Text>
                         )}
                       </View>
-                      <View className="ml-3 flex-1">
-                        <Text style={isDark ? { color: colors.text } : undefined} className="font-bold text-slate-900">
-                          {friend.name}
-                        </Text>
-                        <Text style={isDark ? { color: colors.text } : undefined} className="mt-0.5 text-sm text-slate-500">
-                          @{friend.username}
-                        </Text>
-                      </View>
-                      <View className="h-8 w-8 items-center justify-center rounded-full bg-teal-50">
-                        <ChevronDown color="#0F766E" size={18} style={{ transform: [{ rotate: "-90deg" }] }} />
-                      </View>
+                      <Text style={{ color: colors.text }} numberOfLines={1} className="mt-3 w-full text-center font-extrabold">{friend.name}</Text>
+                      <Text style={{ color: colors.muted }} numberOfLines={1} className="mt-0.5 w-full text-center text-xs">@{friend.username}</Text>
                     </Pressable>
-                  ))
+                  ))}</View>
                 ) : (
                   <View style={isDark ? { backgroundColor: colors.surfaceMuted } : undefined} className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4">
                     <Text style={isDark ? { color: colors.text } : undefined} className="font-bold text-slate-700">Your circle is empty</Text>
