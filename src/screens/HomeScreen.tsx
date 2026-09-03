@@ -302,8 +302,13 @@ export function HomeScreen({
   const [discoverIndex, setDiscoverIndex] = useState(0);
   const [discoverSpots, setDiscoverSpots] = useState<Spot[]>([]);
   const [isDiscoverLoading, setIsDiscoverLoading] = useState(false);
-  const [discoverAudience, setDiscoverAudience] = useState<"friends" | "public">("public");
   const [discoverRadiusMiles, setDiscoverRadiusMiles] = useState(5);
+  const [discoverOrigin, setDiscoverOrigin] = useState<Region | null>(null);
+  const [discoverLocationLabel, setDiscoverLocationLabel] = useState("Near you");
+  const [isDiscoverLocationPickerOpen, setIsDiscoverLocationPickerOpen] = useState(false);
+  const [discoverLocationQuery, setDiscoverLocationQuery] = useState("");
+  const [discoverLocationResults, setDiscoverLocationResults] = useState<PlaceSearchResult[]>([]);
+  const [isDiscoverLocationSearching, setIsDiscoverLocationSearching] = useState(false);
   const [isDiscoverDistancePickerOpen, setIsDiscoverDistancePickerOpen] = useState(false);
   const [discoverFeedHeight, setDiscoverFeedHeight] = useState(560);
   const [activeTab, setActiveTab] = useState<AppTab>("map");
@@ -394,7 +399,7 @@ export function HomeScreen({
     (total, spot) => total + (spot.clusterCount ?? 1),
     0,
   );
-  const discoverableSpots = discoverSpots.length ? discoverSpots : spots.filter((spot) => !spot.isCluster);
+  const discoverableSpots = discoverSpots;
   // Measured from the space below the Discover toolbar. This keeps one whole
   // card per swipe on every phone size, with a small gap beneath the card.
   const discoverPageHeight = Math.max(1, discoverFeedHeight);
@@ -488,15 +493,19 @@ export function HomeScreen({
   );
 
   const openDiscover = async (
-    audience = discoverAudience,
     radiusMiles = discoverRadiusMiles,
+    originOverride?: Region,
   ) => {
     setDiscoverIndex(0);
     navigateToTab("discover");
     if (!API_BASE_URL) return;
+    const origin = originOverride ?? discoverOrigin ?? (userLocation ? { ...userLocation, latitudeDelta: region.latitudeDelta, longitudeDelta: region.longitudeDelta } : null);
+    if (!origin) {
+      setDiscoverSpots([]);
+      return;
+    }
     setIsDiscoverLoading(true);
-    const origin = userLocation ?? region;
-    const params = new URLSearchParams({ mode: audience, latitude: String(origin.latitude), longitude: String(origin.longitude), latitudeDelta: String(region.latitudeDelta), longitudeDelta: String(region.longitudeDelta), radiusMiles: String(radiusMiles), cluster: "0", filters: mapFilters.join(",") });
+    const params = new URLSearchParams({ mode: "discover", latitude: String(origin.latitude), longitude: String(origin.longitude), latitudeDelta: String(region.latitudeDelta), longitudeDelta: String(region.longitudeDelta), radiusMiles: String(radiusMiles), cluster: "0", filters: mapFilters.join(",") });
     try {
       const response = await fetch(`${API_BASE_URL}/api/spots?${params}`, { headers: { Authorization: `Bearer ${session.token}` } });
       if (!response.ok) return;
@@ -512,6 +521,11 @@ export function HomeScreen({
     const timeout = setTimeout(() => void loadSpots(region, mapMode), 260);
     return () => clearTimeout(timeout);
   }, [canShowMapPins, loadSpots, mapMode, mapFilters, region]);
+
+  useEffect(() => {
+    if (activeTab !== "discover" || discoverOrigin || !userLocation) return;
+    void openDiscover();
+  }, [activeTab, discoverOrigin, userLocation?.latitude, userLocation?.longitude]);
 
   const loadFriends = async () => {
     if (!API_BASE_URL) return;
@@ -868,6 +882,78 @@ export function HomeScreen({
     setDiscoveryQuery(place.name);
     setLocationResults([]);
     mapRef.current?.animateToRegion(nextRegion, 360);
+  };
+
+  const searchDiscoverLocation = async () => {
+    if (!API_BASE_URL || discoverLocationQuery.trim().length < 3) return;
+    Keyboard.dismiss();
+    setIsDiscoverLocationSearching(true);
+    try {
+      const origin = userLocation ?? region;
+      const response = await fetch(`${API_BASE_URL}/api/places/search`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.token}`,
+        },
+        body: JSON.stringify({
+          query: discoverLocationQuery.trim(),
+          latitude: origin.latitude,
+          longitude: origin.longitude,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok)
+        throw new Error(body.error ?? "Location search failed.");
+      setDiscoverLocationResults(body as PlaceSearchResult[]);
+    } catch (reason) {
+      Alert.alert(
+        "Could not find that area",
+        reason instanceof Error ? reason.message : "Try another location.",
+      );
+    } finally {
+      setIsDiscoverLocationSearching(false);
+    }
+  };
+
+  const useCurrentDiscoverLocation = () => {
+    if (!userLocation) {
+      Alert.alert(
+        "Finding your location",
+        "Allow location access, then try again.",
+      );
+      return;
+    }
+    setDiscoverOrigin(null);
+    setDiscoverLocationLabel("Near you");
+    setIsDiscoverLocationPickerOpen(false);
+    void openDiscover(discoverRadiusMiles, {
+      ...userLocation,
+      latitudeDelta: region.latitudeDelta,
+      longitudeDelta: region.longitudeDelta,
+    });
+  };
+
+  const useMapDiscoverLocation = () => {
+    setDiscoverOrigin(region);
+    setDiscoverLocationLabel("Map area");
+    setIsDiscoverLocationPickerOpen(false);
+    void openDiscover(discoverRadiusMiles, region);
+  };
+
+  const selectDiscoverLocation = (place: PlaceSearchResult) => {
+    const nextOrigin: Region = {
+      latitude: place.latitude,
+      longitude: place.longitude,
+      latitudeDelta: 0.055,
+      longitudeDelta: 0.055,
+    };
+    setDiscoverOrigin(nextOrigin);
+    setDiscoverLocationLabel(place.name);
+    setDiscoverLocationQuery("");
+    setDiscoverLocationResults([]);
+    setIsDiscoverLocationPickerOpen(false);
+    void openDiscover(discoverRadiusMiles, nextOrigin);
   };
 
   const pickPhoto = async () => {
@@ -2065,17 +2151,25 @@ export function HomeScreen({
       <DiscoverScreen active={activeTab === "discover"} opacity={tabFade}>
           <SafeAreaView edges={[]} style={{ paddingTop: tabTopInset, paddingBottom: 82, backgroundColor: colors.background }} className="flex-1">
             <View className="flex-row items-center justify-between px-5 pb-2 pt-5">
-              <View><Text style={{ color: colors.text }} className="text-2xl font-extrabold">Discover</Text><Text style={{ color: colors.muted }} className="mt-0.5 text-sm">{userLocation ? "Near your location" : "Using this part of the map"}</Text></View>
+              <View><Text style={{ color: colors.text }} className="text-2xl font-extrabold">Discover</Text><Text style={{ color: colors.muted }} className="mt-0.5 text-sm">Recommendations picked for your area</Text></View>
               <Pressable onPress={() => navigateToTab("map")} style={{ backgroundColor: colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-full"><X color={colors.icon} size={22} /></Pressable>
             </View>
             <View className="px-5 pb-2 pt-1">
-              <View className="flex-row items-center">
-                <View style={{ backgroundColor: colors.surfaceMuted }} className="flex-1 flex-row rounded-xl p-1">
-                  {(["friends", "public"] as const).map((audience) => <Pressable key={audience} onPress={() => { setDiscoverAudience(audience); void openDiscover(audience); }} style={discoverAudience === audience ? { backgroundColor: colors.surface } : undefined} className="flex-1 rounded-lg py-2"><Text style={{ color: discoverAudience === audience ? "#0F766E" : colors.muted }} className="text-center text-xs font-extrabold">{audience === "friends" ? "Friends" : "Public"}</Text></Pressable>)}
-                </View>
-                <Pressable onPress={() => setIsDiscoverDistancePickerOpen((current) => !current)} style={{ backgroundColor: colors.surfaceMuted }} className="ml-2 flex-row items-center rounded-xl px-3 py-2"><Text style={{ color: "#0F766E" }} className="text-xs font-extrabold">{discoverRadiusMiles} mi</Text><ChevronDown color="#0F766E" size={14} style={{ marginLeft: 3, transform: [{ rotate: isDiscoverDistancePickerOpen ? "180deg" : "0deg" }] }} /></Pressable>
+              <Pressable
+                accessibilityLabel="Choose the area for Discover"
+                onPress={() => setIsDiscoverLocationPickerOpen(true)}
+                style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border }}
+                className="flex-row items-center rounded-xl border px-3 py-2.5"
+              >
+                <MapPin color="#0F766E" size={18} />
+                <Text style={{ color: colors.text }} numberOfLines={1} className="ml-2 flex-1 text-sm font-extrabold">{discoverOrigin ? discoverLocationLabel : userLocation ? "Near you" : "Finding your location…"}</Text>
+                <ChevronDown color={colors.icon} size={17} />
+              </Pressable>
+              <View className="mt-2 flex-row items-center justify-between">
+                <Text style={{ color: colors.muted }} className="text-xs font-semibold">Local picks, including your circle</Text>
+                <Pressable onPress={() => setIsDiscoverDistancePickerOpen((current) => !current)} style={{ backgroundColor: colors.surfaceMuted }} className="flex-row items-center rounded-xl px-3 py-2"><Text style={{ color: "#0F766E" }} className="text-xs font-extrabold">{discoverRadiusMiles} mi</Text><ChevronDown color="#0F766E" size={14} style={{ marginLeft: 3, transform: [{ rotate: isDiscoverDistancePickerOpen ? "180deg" : "0deg" }] }} /></Pressable>
               </View>
-              {isDiscoverDistancePickerOpen && <View style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl px-3 pb-2 pt-3"><View className="flex-row items-center justify-between"><Text style={{ color: colors.muted }} className="text-xs font-bold">Show places up to</Text><Text style={{ color: "#0F766E" }} className="text-sm font-extrabold">{discoverRadiusMiles} {discoverRadiusMiles === 1 ? "mile" : "miles"}</Text></View><View className="mt-1 flex-row items-center"><Text style={{ color: colors.muted }} className="mr-1 text-[10px] font-semibold">1</Text><Slider value={discoverRadiusMiles} minimumValue={1} maximumValue={25} step={1} minimumTrackTintColor="#0F766E" maximumTrackTintColor={colors.border} thumbTintColor="#0F766E" onValueChange={(value) => setDiscoverRadiusMiles(Math.round(value))} onSlidingComplete={(value) => { const miles = Math.round(value); setDiscoverRadiusMiles(miles); void openDiscover(discoverAudience, miles); }} style={{ flex: 1, height: 28 }} accessibilityLabel="Maximum Discover distance" /><Text style={{ color: colors.muted }} className="ml-1 text-[10px] font-semibold">25</Text></View></View>}
+              {isDiscoverDistancePickerOpen && <View style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl px-3 pb-2 pt-3"><View className="flex-row items-center justify-between"><Text style={{ color: colors.muted }} className="text-xs font-bold">Show places up to</Text><Text style={{ color: "#0F766E" }} className="text-sm font-extrabold">{discoverRadiusMiles} {discoverRadiusMiles === 1 ? "mile" : "miles"}</Text></View><View className="mt-1 flex-row items-center"><Text style={{ color: colors.muted }} className="mr-1 text-[10px] font-semibold">1</Text><Slider value={discoverRadiusMiles} minimumValue={1} maximumValue={25} step={1} minimumTrackTintColor="#0F766E" maximumTrackTintColor={colors.border} thumbTintColor="#0F766E" onValueChange={(value) => setDiscoverRadiusMiles(Math.round(value))} onSlidingComplete={(value) => { const miles = Math.round(value); setDiscoverRadiusMiles(miles); void openDiscover(miles); }} style={{ flex: 1, height: 28 }} accessibilityLabel="Maximum Discover distance" /><Text style={{ color: colors.muted }} className="ml-1 text-[10px] font-semibold">25</Text></View></View>}
             </View>
             {isDiscoverLoading ? (
               <View className="flex-1 items-center justify-center"><ActivityIndicator color="#0F766E" size="large" /><Text style={{ color: colors.muted }} className="mt-4 font-bold">Finding your next picks…</Text></View>
@@ -2091,7 +2185,7 @@ export function HomeScreen({
                       <View className="flex-1 p-5">
                         <View className="flex-row items-start justify-between"><View className="mr-3 flex-1"><Text style={{ color: colors.text }} numberOfLines={2} className="text-2xl font-extrabold leading-7">{spot.name}</Text><Text style={{ color: categoryColors[spot.category] }} className="mt-2 text-sm font-extrabold">{spot.category} · {spot.personalRating}/5</Text></View><Pressable onPress={() => toggleSaved(spot)} style={{ backgroundColor: savedSpots.some((saved) => saved.id === spot.id) ? "#FBBF24" : colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-2xl"><Bookmark color={savedSpots.some((saved) => saved.id === spot.id) ? "white" : "#0F766E"} size={21} fill={savedSpots.some((saved) => saved.id === spot.id) ? "white" : "transparent"} /></Pressable></View>
                         <Text style={{ color: colors.muted }} numberOfLines={2} className="mt-3 text-sm leading-5">{spot.description || spot.note || spot.address}</Text>
-                        <View className="mt-4 flex-1"><View className="flex-row items-center justify-between"><Text style={{ color: colors.muted }} className="text-xs font-bold">{discoverAudience === "public" ? "FROM THE COMMUNITY" : "FROM THE CIRCLE"}</Text><Text style={{ color: categoryColors[spot.category] }} className="text-xs font-extrabold">{spot.communityRatingCount ? `${spot.communityRating?.toFixed(1)}/5 from ${discoverAudience === "public" ? "the community" : "friends"}` : "New recommendation"}</Text></View>{spot.comments?.filter((comment) => comment.comment.trim()).slice(0, 2).map((comment) => <View key={comment.id} style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl p-3"><View className="flex-row items-center justify-between"><Text style={{ color: colors.text }} className="font-extrabold">@{comment.user.username}</Text><Text style={{ color: "#D97706" }} className="text-xs font-extrabold">★ {comment.rating}/5</Text></View><Text style={{ color: colors.muted }} numberOfLines={2} className="mt-1 text-sm leading-5">“{comment.comment}”</Text></View>) ?? null}{!spot.comments?.some((comment) => comment.comment.trim()) && <View style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl p-3"><Text style={{ color: colors.text }} className="font-bold">{spot.pinnedBy || (discoverAudience === "public" ? "Someone nearby" : "Someone in your circle")} recommends this</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm">Open it on the map to add your own rating or comment.</Text></View>}</View>
+                        <View className="mt-4 flex-1"><View className="flex-row items-center justify-between"><Text style={{ color: colors.muted }} className="text-xs font-bold">{spot.visibility === "friends" ? "FROM YOUR CIRCLE" : "FROM THE COMMUNITY"}</Text><Text style={{ color: categoryColors[spot.category] }} className="text-xs font-extrabold">{spot.communityRatingCount ? `${spot.communityRating?.toFixed(1)}/5 from ${spot.visibility === "friends" ? "friends" : "the community"}` : "New recommendation"}</Text></View>{spot.comments?.filter((comment) => comment.comment.trim()).slice(0, 2).map((comment) => <View key={comment.id} style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl p-3"><View className="flex-row items-center justify-between"><Text style={{ color: colors.text }} className="font-extrabold">@{comment.user.username}</Text><Text style={{ color: "#D97706" }} className="text-xs font-extrabold">★ {comment.rating}/5</Text></View><Text style={{ color: colors.muted }} numberOfLines={2} className="mt-1 text-sm leading-5">“{comment.comment}”</Text></View>) ?? null}{!spot.comments?.some((comment) => comment.comment.trim()) && <View style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl p-3"><Text style={{ color: colors.text }} className="font-bold">{spot.pinnedBy || (spot.visibility === "friends" ? "Someone in your circle" : "Someone nearby")} recommends this</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm">Open it on the map to add your own rating or comment.</Text></View>}</View>
                         <View className="mt-4"><Text style={{ color: colors.muted }} className="mb-2 text-center text-xs font-bold">{index < discoverableSpots.length - 1 ? "Swipe up for the next pick" : "You’ve seen every nearby pick"}</Text><View className="flex-row gap-2"><Pressable onPress={() => getDirections(spot)} className="flex-1 rounded-2xl bg-slate-900 py-3.5"><Text className="text-center font-extrabold text-white">Directions</Text></Pressable><Pressable onPress={() => { navigateToTab("map"); requestAnimationFrame(() => openSpot(spot)); }} className="flex-1 rounded-2xl bg-teal-700 py-3.5"><Text className="text-center font-extrabold text-white">See on map</Text></Pressable></View>{index < discoverableSpots.length - 1 ? <Pressable onPress={() => { const next = index + 1; discoverPagerRef.current?.scrollTo({ y: next * discoverPageHeight, animated: true }); setDiscoverIndex(next); }} style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl py-3"><Text style={{ color: colors.text }} className="text-center text-sm font-extrabold">Next pick</Text></Pressable> : null}</View>
                       </View>
                     </View>
@@ -2099,10 +2193,23 @@ export function HomeScreen({
                 ))}
               </ScrollView>
             ) : (
-              <View className="flex-1 items-center justify-center px-8"><View style={{ backgroundColor: colors.surfaceMuted }} className="h-16 w-16 items-center justify-center rounded-3xl"><MapPin color="#0F766E" size={30} /></View><Text style={{ color: colors.text }} className="mt-5 text-xl font-extrabold">No picks here yet</Text><Text style={{ color: colors.muted }} className="mt-2 text-center leading-5">Move the map to a busier area, then open Discover again.</Text></View>
+              <View className="flex-1 items-center justify-center px-8"><View style={{ backgroundColor: colors.surfaceMuted }} className="h-16 w-16 items-center justify-center rounded-3xl"><MapPin color="#0F766E" size={30} /></View><Text style={{ color: colors.text }} className="mt-5 text-xl font-extrabold">{!discoverOrigin && !userLocation ? "Finding your location" : "No picks here yet"}</Text><Text style={{ color: colors.muted }} className="mt-2 text-center leading-5">{!discoverOrigin && !userLocation ? "Allow location access, or choose an area above to start exploring." : "Try a wider distance or choose a different area above."}</Text></View>
             )}
           </SafeAreaView>
       </DiscoverScreen>
+      <Modal visible={isDiscoverLocationPickerOpen} animationType="fade" transparent onRequestClose={() => setIsDiscoverLocationPickerOpen(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1">
+          <View className="flex-1 justify-center bg-black/40 px-5">
+            <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="max-h-[78%] overflow-hidden rounded-[28px] border p-5">
+              <View className="flex-row items-start justify-between"><View><Text style={{ color: colors.text }} className="text-xl font-extrabold">Choose an area</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm">Discover recommendations wherever you are.</Text></View><Pressable onPress={() => setIsDiscoverLocationPickerOpen(false)} style={{ backgroundColor: colors.surfaceMuted }} className="h-9 w-9 items-center justify-center rounded-full"><X color={colors.icon} size={19} /></Pressable></View>
+              <View className="mt-5 flex-row gap-2"><Pressable onPress={useCurrentDiscoverLocation} style={{ backgroundColor: colors.surfaceMuted }} className="flex-1 items-center rounded-2xl px-2 py-3"><LocateFixed color="#0F766E" size={19} /><Text style={{ color: colors.text }} className="mt-2 text-xs font-extrabold">Near me</Text></Pressable><Pressable onPress={useMapDiscoverLocation} style={{ backgroundColor: colors.surfaceMuted }} className="flex-1 items-center rounded-2xl px-2 py-3"><MapIcon color="#0F766E" size={19} /><Text style={{ color: colors.text }} className="mt-2 text-xs font-extrabold">Map area</Text></Pressable></View>
+              <Text style={{ color: colors.muted }} className="mb-2 mt-5 text-xs font-extrabold uppercase tracking-wide">Or search an area</Text>
+              <View style={{ backgroundColor: colors.surfaceMuted }} className="flex-row items-center rounded-2xl px-3"><Search color={colors.muted} size={18} /><TextInput value={discoverLocationQuery} onChangeText={(value) => { setDiscoverLocationQuery(value); setDiscoverLocationResults([]); }} onSubmitEditing={searchDiscoverLocation} placeholder="Shoreditch, Camden, a venue…" placeholderTextColor={colors.muted} returnKeyType="search" className="ml-2 flex-1 py-3.5 text-sm" /></View>
+              {isDiscoverLocationSearching ? <ActivityIndicator style={{ marginVertical: 18 }} color="#0F766E" /> : <ScrollView className="mt-2" showsVerticalScrollIndicator={false}>{discoverLocationResults.map((place) => <Pressable key={place.placeId} onPress={() => selectDiscoverLocation(place)} style={{ borderColor: colors.border }} className="flex-row items-center border-b px-1 py-3"><MapPin color="#0F766E" size={17} /><View className="ml-3 flex-1"><Text style={{ color: colors.text }} numberOfLines={1} className="font-extrabold">{place.name}</Text><Text style={{ color: colors.muted }} numberOfLines={1} className="mt-0.5 text-xs">{place.address}</Text></View><ChevronDown color={colors.muted} size={17} style={{ transform: [{ rotate: "-90deg" }] }} /></Pressable>)}</ScrollView>}
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
       <Modal
         visible={isAddOpen}
         animationType="fade"
