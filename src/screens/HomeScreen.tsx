@@ -1520,12 +1520,11 @@ export function HomeScreen({
     next.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
     if (pickerMode === "date") {
       setScheduledAt(next);
-      setPickerMode("time");
     } else {
       next.setHours(date.getHours(), date.getMinutes());
       setScheduledAt(next);
-      setPickerMode(null);
     }
+    if (Platform.OS !== "ios") setPickerMode(null);
   };
 
   const centerOnUser = () =>
@@ -2795,45 +2794,31 @@ export function HomeScreen({
         onRequestClose={() => setIsScheduleOpen(false)}
       >
         <View className="flex-1 justify-end bg-black/40">
-          <View style={isDark ? { backgroundColor: colors.surface } : undefined} className="rounded-t-3xl bg-white px-6 pb-10 pt-5">
+          <View style={{ backgroundColor: colors.surface }} className="max-h-[88%] rounded-t-[32px] px-5 pb-8 pt-4">
+            <View className="mb-4 h-1.5 w-11 self-center rounded-full" style={{ backgroundColor: colors.border }} />
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View className="flex-row items-center justify-between">
               <View>
-                <Text style={isDark ? { color: colors.text } : undefined} className="text-2xl font-extrabold text-slate-900">
+                <Text style={{ color: colors.text }} className="text-2xl font-extrabold">
                   Schedule with friends
                 </Text>
-                <Text style={isDark ? { color: colors.text } : undefined} className="mt-1 text-sm text-slate-500">
+                <Text style={{ color: colors.muted }} className="mt-1 text-sm">
                   {selectedSpot?.name}
                 </Text>
               </View>
               <Pressable
                 onPress={() => setIsScheduleOpen(false)}
-                className="rounded-full bg-slate-100 p-2"
+                style={{ backgroundColor: colors.surfaceMuted }}
+                className="rounded-full p-2"
               >
-                <X color="#334155" size={20} />
+                <X color={colors.icon} size={20} />
               </Pressable>
             </View>
-            <Pressable
-              onPress={() => setPickerMode("date")}
-              className="mt-5 rounded-2xl bg-slate-100 p-4"
-            >
-              <Text style={isDark ? { color: colors.text } : undefined} className="text-xs font-extrabold uppercase tracking-wide text-slate-500">
-                Date & time
-              </Text>
-              <Text style={isDark ? { color: colors.text } : undefined} className="mt-1 text-lg font-bold text-slate-900">
-                {formatPlanDate(scheduledAt)}
-              </Text>
-            </Pressable>
+            <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border }} className="mt-5 rounded-3xl border p-4"><View className="flex-row items-center justify-between"><Text style={{ color: colors.muted }} className="text-xs font-extrabold uppercase tracking-wide">When</Text><View className="rounded-full bg-teal-700 px-2.5 py-1"><Text className="text-[10px] font-extrabold text-white">Local time</Text></View></View><View className="mt-3 flex-row gap-2"><Pressable onPress={() => setPickerMode("date")} style={{ backgroundColor: pickerMode === "date" ? (isDark ? "#153E3C" : "#DFF1EE") : colors.surface, borderColor: pickerMode === "date" ? "#0F766E" : colors.border }} className="flex-1 rounded-2xl border px-3 py-3"><Text style={{ color: colors.muted }} className="text-[10px] font-extrabold uppercase">Date</Text><Text style={{ color: colors.text }} className="mt-1 font-extrabold">{new Date(scheduledAt).toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" })}</Text></Pressable><Pressable onPress={() => setPickerMode("time")} style={{ backgroundColor: pickerMode === "time" ? (isDark ? "#153E3C" : "#DFF1EE") : colors.surface, borderColor: pickerMode === "time" ? "#0F766E" : colors.border }} className="flex-1 rounded-2xl border px-3 py-3"><Text style={{ color: colors.muted }} className="text-[10px] font-extrabold uppercase">Time</Text><Text style={{ color: colors.text }} className="mt-1 font-extrabold">{new Date(scheduledAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", ...(preferences.timeFormat === "system" ? {} : { hour12: preferences.timeFormat === "12h" }) })}</Text></Pressable></View></View>
             {pickerMode && (
-              <DateTimePicker
-                value={scheduledAt}
-                mode={pickerMode}
-                minimumDate={new Date()}
-                onChange={onDateChange}
-              />
+              <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="mt-3 overflow-hidden rounded-3xl border"><View className="flex-row items-center justify-between px-4 pt-3"><Text style={{ color: colors.text }} className="font-extrabold">Choose {pickerMode === "date" ? "a date" : "a time"}</Text><Pressable onPress={() => setPickerMode(null)} className="rounded-full px-2 py-1"><Text style={{ color: "#0F766E" }} className="text-xs font-extrabold">Done</Text></Pressable></View><DateTimePicker value={scheduledAt} mode={pickerMode} display={Platform.OS === "ios" ? "spinner" : "default"} minimumDate={pickerMode === "date" ? new Date() : undefined} onChange={onDateChange} style={{ marginTop: 4 }} /></View>
             )}
-            <Text style={isDark ? { color: colors.text } : undefined} className="mb-2 mt-5 text-xs font-extrabold uppercase tracking-wide text-slate-500">
-              Invite friends
-            </Text>
+            <View className="mb-2 mt-5 flex-row items-center justify-between"><Text style={{ color: colors.text }} className="text-sm font-extrabold">Invite friends</Text><Text style={{ color: colors.muted }} className="text-xs font-bold">{inviteeIds.length ? `${inviteeIds.length} selected` : "Choose one or more"}</Text></View>
             {friends.length ? (
               friends.map((friend) => (
                 <Pressable
@@ -2845,13 +2830,14 @@ export function HomeScreen({
                         : [...current, friend.id],
                     )
                   }
-                  className={`mb-2 flex-row items-center justify-between rounded-2xl p-3 ${inviteeIds.includes(friend.id) ? "bg-teal-100" : "bg-slate-100"}`}
+                  style={{ backgroundColor: inviteeIds.includes(friend.id) ? (isDark ? "#153E3C" : "#DFF1EE") : colors.surfaceMuted, borderColor: inviteeIds.includes(friend.id) ? "#0F766E" : colors.border }}
+                  className="mb-2 flex-row items-center justify-between rounded-2xl border p-3"
                 >
                   <View>
-                    <Text style={isDark ? { color: colors.text } : undefined} className="font-bold text-slate-900">
+                    <Text style={{ color: colors.text }} className="font-bold">
                       {friend.name}
                     </Text>
-                    <Text style={isDark ? { color: colors.text } : undefined} className="text-sm text-slate-500">
+                    <Text style={{ color: colors.muted }} className="text-sm">
                       @{friend.username}
                     </Text>
                   </View>
@@ -2861,22 +2847,23 @@ export function HomeScreen({
                 </Pressable>
               ))
             ) : (
-              <Text style={isDark ? { color: colors.text } : undefined} className="text-sm text-slate-500">
+              <Text style={{ color: colors.muted }} className="text-sm">
                 Add and accept friends before scheduling a plan.
               </Text>
             )}
             {planError && (
-              <Text style={isDark ? { color: colors.text } : undefined} className="mt-3 text-sm text-rose-600">{planError}</Text>
+              <Text className="mt-3 text-sm text-rose-600">{planError}</Text>
             )}
             <Pressable
-              disabled={!friends.length}
+              disabled={!inviteeIds.length}
               onPress={createPlan}
-              className={`mt-5 rounded-2xl py-4 ${friends.length ? "bg-teal-700" : "bg-slate-300"}`}
+              className={`mt-5 rounded-2xl py-4 ${inviteeIds.length ? "bg-teal-700" : "bg-slate-300"}`}
             >
-              <Text style={isDark ? { color: colors.text } : undefined} className="text-center font-extrabold text-white">
-                Send invitations
+              <Text className="text-center font-extrabold text-white">
+                Send {inviteeIds.length ? `${inviteeIds.length} invitation${inviteeIds.length === 1 ? "" : "s"}` : "invitations"}
               </Text>
             </Pressable>
+            </ScrollView>
           </View>
         </View>
       </Modal>
