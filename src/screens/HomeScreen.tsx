@@ -7,9 +7,9 @@ import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from "expo-secure-store";
 import * as Haptics from "expo-haptics";
 import * as Notifications from "expo-notifications";
+import * as Calendar from "expo-calendar";
 import {
   Bike,
-  Bell,
   Bookmark,
   CalendarPlus,
   Check,
@@ -121,14 +121,6 @@ type FriendProfile = {
   locationCount: number;
   friendCount: number;
   spots: Spot[];
-};
-type ActivityItem = {
-  id: string;
-  type: "friend_request" | "friend_accepted" | "recommendation" | "plan_invite" | "plan_rsvp";
-  entity_id: string | null;
-  payload: { name?: string; spotName?: string; scheduledAt?: string; status?: string };
-  created_at: string;
-  actor: Pick<User, "id" | "name" | "username"> | null;
 };
 // Public recommendations belong in Discover. The map is deliberately limited
 // to the user's own and friends' places so it remains a personal planning map.
@@ -373,7 +365,6 @@ export function HomeScreen({
   const [incomingRequests, setIncomingRequests] = useState<
     { id: string; user: User }[]
   >([]);
-  const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [selectedFriendProfile, setSelectedFriendProfile] =
     useState<FriendProfile | null>(null);
   const [isFriendProfileLoading, setIsFriendProfileLoading] = useState(false);
@@ -385,20 +376,10 @@ export function HomeScreen({
   const [isSavedCategoryPickerOpen, setIsSavedCategoryPickerOpen] = useState(false);
   const [savedCategorySearch, setSavedCategorySearch] = useState("");
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [selectedPlannerDate, setSelectedPlannerDate] = useState<string | null>(null);
-  const [friendsView, setFriendsView] = useState<"plans" | "circle" | "requests" | "activity">("plans");
+  const [friendsView, setFriendsView] = useState<"plans" | "circle" | "requests">("plans");
   const upcomingPlans = plans.filter(
     (plan) => new Date(plan.scheduledAt).getTime() > Date.now(),
   );
-  const plannerDays = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date();
-    date.setHours(12, 0, 0, 0);
-    date.setDate(date.getDate() + index);
-    return date;
-  });
-  const activePlannerDate = selectedPlannerDate ?? calendarKey(new Date());
-  const selectedDayPlans = upcomingPlans.filter((plan) => calendarKey(plan.scheduledAt) === activePlannerDate);
-  const activePlannerLabel = activePlannerDate === calendarKey(new Date()) ? "Today" : new Date(`${activePlannerDate}T12:00:00`).toLocaleDateString([], { weekday: "long", day: "numeric", month: "short" });
   const nextPlan = upcomingPlans[0] ?? null;
   const remainingPlans = upcomingPlans.filter((plan) => plan.id !== nextPlan?.id);
   const [scheduledAt, setScheduledAt] = useState(
@@ -566,17 +547,8 @@ export function HomeScreen({
     }
   };
 
-  const loadActivity = async () => {
-    if (!API_BASE_URL) return;
-    const response = await fetch(`${API_BASE_URL}/api/activity`, {
-      headers: { Authorization: `Bearer ${session.token}` },
-    });
-    if (response.ok) setActivity(await response.json());
-  };
-
   useEffect(() => {
     void loadFriends();
-    void loadActivity();
   }, [session.token]);
 
   const loadSaved = async () => {
@@ -1511,6 +1483,31 @@ export function HomeScreen({
         },
       },
     ]);
+  const addPlanToCalendar = async (plan: Plan) => {
+    try {
+      const permission = await Calendar.requestCalendarPermissionsAsync();
+      if (permission.status !== "granted") {
+        Alert.alert("Calendar access needed", "Allow calendar access to add this plan to your phone.");
+        return;
+      }
+      const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+      const calendar = calendars.find((item) => item.allowsModifications) ?? calendars[0];
+      if (!calendar) throw new Error("No editable calendar was found on this device.");
+      const startDate = new Date(plan.scheduledAt);
+      const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000);
+      await Calendar.createEventAsync(calendar.id, {
+        title: plan.spot?.name ?? "Recs plan",
+        startDate,
+        endDate,
+        location: plan.spot?.address ?? "",
+        notes: `Planned on Recs with @${plan.host?.username ?? "friend"}.`,
+      });
+      successHaptic();
+      Alert.alert("Added to calendar", "This plan is now in your phone calendar.");
+    } catch (reason) {
+      Alert.alert("Could not add to calendar", reason instanceof Error ? reason.message : "Try again after enabling calendar access.");
+    }
+  };
   const onDateChange = (_event: DateTimePickerEvent, date?: Date) => {
     if (!date) {
       setPickerMode(null);
@@ -2892,10 +2889,10 @@ export function HomeScreen({
               </Pressable>
             </View>
             <View style={{ backgroundColor: colors.surfaceMuted }} className="mt-5 flex-row rounded-2xl p-1">
-              {(["plans", "activity", "circle", "requests"] as const).map((view) => {
-                const label = view === "plans" ? "Plans" : view === "circle" ? "Circle" : view === "activity" ? "Updates" : "Requests";
-                const badge = view === "requests" ? incomingRequests.length : view === "activity" ? activity.length : 0;
-                return <Pressable key={view} onPress={() => { setFriendsView(view); if (view === "activity") void loadActivity(); }} style={friendsView === view ? { backgroundColor: colors.surface } : undefined} className="flex-1 flex-row items-center justify-center rounded-xl py-2.5">
+              {(["plans", "circle", "requests"] as const).map((view) => {
+                const label = view === "plans" ? "Plans" : view === "circle" ? "Circle" : "Requests";
+                const badge = view === "requests" ? incomingRequests.length : 0;
+                return <Pressable key={view} onPress={() => setFriendsView(view)} style={friendsView === view ? { backgroundColor: colors.surface } : undefined} className="flex-1 flex-row items-center justify-center rounded-xl py-2.5">
                   <Text style={{ color: friendsView === view ? "#0F766E" : colors.muted }} className="text-xs font-extrabold">{label}</Text>
                   {badge ? <View className="ml-1.5 min-w-4 items-center rounded-full bg-rose-500 px-1"><Text className="text-[10px] font-extrabold text-white">{badge}</Text></View> : null}
                 </Pressable>;
@@ -2968,112 +2965,7 @@ export function HomeScreen({
                 {friendsView === "plans" && <>
                 <View className="mb-4 mt-7 flex-row items-center justify-between"><View className="flex-row items-center"><View style={{ backgroundColor: colors.surfaceMuted }} className="mr-2 h-9 w-9 items-center justify-center rounded-xl"><CalendarPlus color="#0F766E" size={17} /></View><View><Text style={{ color: colors.text }} className="font-extrabold">Plans</Text><Text style={{ color: colors.muted }} className="text-xs">Your next moments together</Text></View></View>{upcomingPlans.length ? <View style={{ backgroundColor: colors.surfaceMuted }} className="rounded-full px-2.5 py-1"><Text style={{ color: "#0F766E" }} className="text-xs font-extrabold">{upcomingPlans.length} upcoming</Text></View> : null}</View>
                 {nextPlan ? (() => { const mine = nextPlan.hostId === session.user.id; const invite = nextPlan.invites.find((item) => item.userId === session.user.id); const going = nextPlan.invites.filter((item) => item.status === "accepted").length + 1; const accent = categoryColors[nextPlan.spot?.category as Category] ?? "#0F766E"; return <Pressable onPress={() => setSelectedPlan(nextPlan)} style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="mb-5 overflow-hidden rounded-[28px] border"><View style={{ backgroundColor: `${accent}22` }} className="flex-row items-center px-4 py-3"><View style={{ backgroundColor: accent }} className="h-11 w-11 items-center justify-center rounded-2xl">{categoryIcon(nextPlan.spot?.category as Category ?? "Other", "white", 21)}</View><View className="ml-3 flex-1"><Text style={{ color: colors.text }} className="text-xs font-extrabold uppercase tracking-wide">Next up</Text><Text style={{ color: colors.muted }} numberOfLines={1} className="mt-0.5 text-xs">{formatPlanDate(nextPlan.scheduledAt, "full")}</Text></View><View style={{ backgroundColor: colors.surface }} className="rounded-xl px-2.5 py-1.5"><Text style={{ color: accent }} className="text-xs font-extrabold">{going} going</Text></View></View><View className="p-4"><Text style={{ color: colors.text }} numberOfLines={1} className="text-xl font-extrabold">{nextPlan.spot?.name ?? "Place"}</Text><Text style={{ color: colors.muted }} numberOfLines={1} className="mt-1 text-sm">{nextPlan.spot?.address ?? "Details available in plan"}</Text><View className="mt-4 flex-row items-center justify-between"><Text style={{ color: mine ? "#0F766E" : colors.muted }} className="text-sm font-bold">{mine ? "You’re hosting" : invite?.status === "pending" ? `Invited by @${nextPlan.host?.username ?? "friend"}` : `You’re ${invite?.status}`}</Text><View className="flex-row items-center"><Text style={{ color: colors.muted }} className="mr-1 text-xs font-bold">View plan</Text><ChevronDown color={colors.icon} size={17} style={{ transform: [{ rotate: "-90deg" }] }} /></View></View>{!mine && invite?.status === "pending" ? <View className="mt-4 flex-row gap-2"><Pressable onPress={() => respondToPlan(nextPlan.id, "accepted")} className="flex-1 rounded-xl bg-teal-700 py-3"><Text className="text-center text-sm font-extrabold text-white">I’m in</Text></Pressable><Pressable onPress={() => respondToPlan(nextPlan.id, "maybe")} style={{ backgroundColor: colors.surfaceMuted }} className="flex-1 rounded-xl py-3"><Text style={{ color: colors.text }} className="text-center text-sm font-extrabold">Maybe</Text></Pressable></View> : null}</View></Pressable>; })() : <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border }} className="mb-5 rounded-3xl border border-dashed p-5"><Text style={{ color: colors.text }} className="font-extrabold">Nothing in the diary yet</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm leading-5">Open a recommendation to make a plan with friends.</Text></View>}
-                <View className="mb-3 flex-row items-center justify-between"><Text style={{ color: colors.text }} className="text-sm font-extrabold">This week</Text><Text style={{ color: colors.muted }} className="text-xs font-bold">Tap a day</Text></View>
-                <View className="mb-5 flex-row justify-between">
-                  {plannerDays.map((day) => {
-                    const key = calendarKey(day);
-                    const count = upcomingPlans.filter((plan) => calendarKey(plan.scheduledAt) === key).length;
-                    const selected = key === activePlannerDate;
-                    return <Pressable key={key} onPress={() => setSelectedPlannerDate(key)} style={{ backgroundColor: selected ? "#0F766E" : colors.surface, borderColor: selected ? "#0F766E" : colors.border }} className="h-[62px] w-[45px] items-center justify-center rounded-2xl border">
-                      <Text style={{ color: selected ? "#CCFBF1" : colors.muted }} className="text-[10px] font-extrabold uppercase">{day.toLocaleDateString([], { weekday: "short" })}</Text>
-                      <Text style={{ color: selected ? "#FFFFFF" : colors.text }} className="mt-0.5 text-base font-extrabold">{day.getDate()}</Text>
-                      <View style={{ backgroundColor: count ? (selected ? "#FFFFFF" : "#14B8A6") : "transparent" }} className="mt-1 h-1.5 w-1.5 rounded-full" />
-                    </Pressable>;
-                  })}
-                </View>
-                <View className="mb-3 flex-row items-center justify-between">
-                  <Text style={{ color: colors.text }} className="text-sm font-extrabold">{activePlannerLabel}</Text>
-                  <Text style={{ color: colors.muted }} className="text-xs font-bold">{selectedDayPlans.length ? `${selectedDayPlans.length} plan${selectedDayPlans.length === 1 ? "" : "s"}` : "Free day"}</Text>
-                </View>
-                {selectedDayPlans.filter((plan) => plan.id !== nextPlan?.id).length ? (
-                  selectedDayPlans.filter((plan) => plan.id !== nextPlan?.id).map((plan) => {
-                    const mine = plan.hostId === session.user.id;
-                    const invite = plan.invites.find(
-                      (item) => item.userId === session.user.id,
-                    );
-                    return (
-                      <Pressable
-                        key={plan.id}
-                        onPress={() => setSelectedPlan(plan)}
-                        style={{ backgroundColor: colors.surface, borderColor: colors.border }}
-                        className="mb-3 overflow-hidden rounded-2xl border p-3"
-                      >
-                        <View className="flex-row items-start">
-                          <View style={{ backgroundColor: colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-2xl">
-                            <CalendarPlus color="#0F766E" size={19} />
-                          </View>
-                          <View className="ml-3 flex-1">
-                            <Text style={isDark ? { color: colors.text } : undefined} numberOfLines={1} className="font-extrabold text-slate-900">
-                              {plan.spot?.name ?? "Place"}
-                            </Text>
-                            <Text style={isDark ? { color: colors.text } : undefined} className="mt-1 text-sm text-slate-600">
-                              {formatPlanDate(plan.scheduledAt)}
-                            </Text>
-                            <Text style={isDark ? { color: colors.text } : undefined} className="mt-1 text-xs font-bold text-teal-700">
-                              {mine
-                                ? "You’re hosting"
-                                : `Invited by @${plan.host?.username ?? "friend"}`}
-                            </Text>
-                          </View>
-                          <ChevronDown
-                            color="#94A3B8"
-                            size={18}
-                            style={{ transform: [{ rotate: "-90deg" }] }}
-                          />
-                        </View>
-                        {!mine && invite?.status === "pending" && (
-                          <View className="mt-3 flex-row gap-2">
-                            <Pressable
-                              onPress={() => respondToPlan(plan.id, "accepted")}
-                              className="flex-1 rounded-xl bg-teal-700 py-2.5"
-                            >
-                              <Text style={isDark ? { color: colors.text } : undefined} className="text-center font-bold text-white">
-                                Accept
-                              </Text>
-                            </Pressable>
-                            <Pressable
-                              onPress={() => respondToPlan(plan.id, "declined")}
-                              className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5"
-                            >
-                              <Text style={isDark ? { color: colors.text } : undefined} className="text-center font-bold text-slate-600">
-                                Decline
-                              </Text>
-                            </Pressable>
-                          </View>
-                        )}
-                        {!mine && invite?.status !== "pending" && (
-                          <View className="mt-2 flex-row items-center justify-between">
-                            <Text style={isDark ? { color: colors.text } : undefined} className="text-sm text-slate-500">
-                              You are {invite?.status}.
-                            </Text>
-                            <Pressable
-                              onPress={() => setSelectedPlan(plan)}
-                            className="rounded-full bg-white px-3 py-1.5"
-                            >
-                              <Text style={isDark ? { color: colors.text } : undefined} className="text-xs font-extrabold text-teal-700">
-                                Change RSVP
-                              </Text>
-                            </Pressable>
-                          </View>
-                        )}
-                      </Pressable>
-                    );
-                  })
-                ) : (
-                  <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border }} className="rounded-2xl border border-dashed p-4">
-                    <Text style={{ color: colors.text }} className="font-bold">Nothing planned for {activePlannerLabel.toLowerCase()}</Text>
-                    <Text style={{ color: colors.muted }} className="mt-1 text-sm leading-5">Choose another highlighted day to see a plan, or make one from a recommendation.</Text>
-                  </View>
-                )}
-                {remainingPlans.length ? <><View className="mb-3 mt-6 flex-row items-center justify-between"><Text style={{ color: colors.text }} className="text-sm font-extrabold">Coming up</Text><Text style={{ color: colors.muted }} className="text-xs font-bold">{remainingPlans.length} more</Text></View>{remainingPlans.slice(0, 3).map((plan) => <Pressable key={plan.id} onPress={() => setSelectedPlan(plan)} style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="mb-2 flex-row items-center rounded-2xl border p-3"><View style={{ backgroundColor: colors.surfaceMuted }} className="h-10 w-10 items-center justify-center rounded-xl"><Text style={{ color: "#0F766E" }} className="text-xs font-extrabold">{new Date(plan.scheduledAt).getDate()}</Text><Text style={{ color: colors.muted }} className="text-[9px] font-bold uppercase">{new Date(plan.scheduledAt).toLocaleDateString([], { month: "short" })}</Text></View><View className="ml-3 flex-1"><Text style={{ color: colors.text }} numberOfLines={1} className="font-extrabold">{plan.spot?.name ?? "Place"}</Text><Text style={{ color: colors.muted }} numberOfLines={1} className="mt-0.5 text-xs">{formatPlanDate(plan.scheduledAt)}</Text></View><ChevronDown color={colors.muted} size={16} style={{ transform: [{ rotate: "-90deg" }] }} /></Pressable>)}</> : null}
-                </>}
-                {friendsView === "activity" && <>
-                  <View className="mb-3 mt-7 flex-row items-center justify-between"><View className="flex-row items-center"><View style={{ backgroundColor: colors.surfaceMuted }} className="mr-2 h-8 w-8 items-center justify-center rounded-xl"><Bell color="#0F766E" size={16} /></View><View><Text style={{ color: colors.text }} className="font-extrabold">Updates</Text><Text style={{ color: colors.muted }} className="text-xs">What’s new in your circle</Text></View></View>{activity.length ? <View style={{ backgroundColor: colors.surfaceMuted }} className="rounded-full px-2.5 py-1"><Text style={{ color: colors.text }} className="text-xs font-extrabold">{activity.length}</Text></View> : null}</View>
-                  {activity.length ? activity.map((item) => {
-                    const actor = item.actor ? `@${item.actor.username}` : "Someone";
-                    const message = item.type === "friend_request" ? `${actor} sent you a friend request` : item.type === "friend_accepted" ? `${actor} accepted your friend request` : item.type === "recommendation" ? `${actor} shared ${item.payload.name ?? "a recommendation"}` : item.type === "plan_invite" ? `${actor} invited you to ${item.payload.spotName ?? "a plan"}` : `${actor} is ${item.payload.status ?? "responding"} to your plan`;
-                    return <View key={item.id} style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="mb-3 flex-row items-start rounded-2xl border p-4"><View style={{ backgroundColor: colors.surfaceMuted }} className="mr-3 h-10 w-10 items-center justify-center rounded-2xl"><Bell color="#0F766E" size={18} /></View><View className="flex-1"><Text style={{ color: colors.text }} className="font-bold leading-5">{message}</Text><Text style={{ color: colors.muted }} className="mt-1 text-xs">{new Date(item.created_at).toLocaleDateString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</Text></View></View>;
-                  }) : <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border }} className="rounded-2xl border border-dashed p-5"><Text style={{ color: colors.text }} className="font-bold">You’re all caught up</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm leading-5">Friend requests, shared places and plan replies will appear here.</Text></View>}
+                {remainingPlans.length ? <><View className="mb-3 mt-1 flex-row items-center justify-between"><Text style={{ color: colors.text }} className="text-sm font-extrabold">More plans</Text><Text style={{ color: colors.muted }} className="text-xs font-bold">Swipe to browse</Text></View><ScrollView horizontal showsHorizontalScrollIndicator={false} decelerationRate="fast" snapToInterval={272} disableIntervalMomentum contentContainerStyle={{ paddingRight: 20 }}>{remainingPlans.map((plan) => { const accent = categoryColors[plan.spot?.category as Category] ?? "#0F766E"; const invite = plan.invites.find((item) => item.userId === session.user.id); return <Pressable key={plan.id} onPress={() => setSelectedPlan(plan)} style={{ width: 256, backgroundColor: colors.surface, borderColor: colors.border }} className="mr-4 overflow-hidden rounded-3xl border"><View style={{ backgroundColor: `${accent}20` }} className="h-24 justify-between p-4"><View style={{ backgroundColor: accent }} className="h-9 w-9 items-center justify-center rounded-xl">{categoryIcon(plan.spot?.category as Category ?? "Other", "white", 18)}</View><Text style={{ color: accent }} className="text-xs font-extrabold">{formatPlanDate(plan.scheduledAt)}</Text></View><View className="p-4"><Text style={{ color: colors.text }} numberOfLines={1} className="text-base font-extrabold">{plan.spot?.name ?? "Place"}</Text><Text style={{ color: colors.muted }} numberOfLines={1} className="mt-1 text-xs">{plan.spot?.address ?? "Details in plan"}</Text><View className="mt-4 flex-row items-center justify-between"><Text style={{ color: plan.hostId === session.user.id ? "#0F766E" : colors.muted }} className="text-xs font-extrabold">{plan.hostId === session.user.id ? "You’re hosting" : invite?.status === "pending" ? "RSVP needed" : `You’re ${invite?.status}`}</Text><ChevronDown color={colors.muted} size={16} style={{ transform: [{ rotate: "-90deg" }] }} /></View></View></Pressable>; })}</ScrollView></> : null}
                 </>}
                 {friendsView === "requests" && <>
                 <View className="mb-3 mt-7 flex-row items-center justify-between">
@@ -3308,6 +3200,7 @@ export function HomeScreen({
                       Directions
                     </Text>
                   </Pressable>
+                  <Pressable onPress={() => void addPlanToCalendar(selectedPlan)} style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border }} className="mt-3 flex-row items-center justify-center rounded-xl border py-3"><CalendarPlus color="#0F766E" size={18} /><Text style={{ color: colors.text }} className="ml-2 font-bold">Add to phone calendar</Text></Pressable>
                   {selectedPlan.hostId === session.user.id && (
                     <Pressable
                       onPress={() => deletePlan(selectedPlan)}
