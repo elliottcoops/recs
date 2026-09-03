@@ -2720,50 +2720,7 @@ export function HomeScreen({
             </View>
             <ScrollView className="mt-5" showsVerticalScrollIndicator={false}>
               {filteredSavedSpots.length ? (
-                filteredSavedSpots.map((spot) => (
-                  <Pressable
-                    key={spot.id}
-                    onPress={() => {
-                      navigateToTab("map");
-                      requestAnimationFrame(() => openSpot(spot));
-                    }}
-                    className="mb-3 flex-row overflow-hidden rounded-2xl bg-slate-100"
-                  >
-                    <View
-                      className="h-24 w-24 items-center justify-center"
-                      style={{
-                        backgroundColor: `${categoryColors[spot.category]}25`,
-                      }}
-                    >
-                      {spot.photoUri ? (
-                        <NativeImage
-                          source={{ uri: spot.photoUri }}
-                          style={styles.cardPhoto}
-                        />
-                      ) : (
-                        <MapPin
-                          color={categoryColors[spot.category]}
-                          size={28}
-                          fill={categoryColors[spot.category]}
-                        />
-                      )}
-                    </View>
-                    <View className="flex-1 justify-center px-4">
-                      <Text style={isDark ? { color: colors.text } : undefined} className="font-extrabold text-slate-900">
-                        {spot.name}
-                      </Text>
-                      <Text style={isDark ? { color: colors.text } : undefined}
-                        className="mt-1 text-sm text-slate-500"
-                        numberOfLines={1}
-                      >
-                        {spot.address}
-                      </Text>
-                      <Text style={isDark ? { color: colors.text } : undefined} className="mt-1 text-xs font-bold text-teal-700">
-                        {spot.personalRating}/5 · {spot.category}{distanceLabel(spot) ? ` · ${distanceLabel(spot)}` : ""}
-                      </Text>
-                    </View>
-                  </Pressable>
-                ))
+                <View className="flex-row flex-wrap justify-between">{filteredSavedSpots.map((spot) => { const accent = categoryColors[spot.category]; return <Pressable key={spot.id} onPress={() => { navigateToTab("map"); requestAnimationFrame(() => openSpot(spot)); }} style={{ width: "48.5%", backgroundColor: colors.surface, borderColor: colors.border }} className="mb-3 overflow-hidden rounded-3xl border"><View style={{ backgroundColor: `${accent}20` }} className="h-28 items-center justify-center">{spot.photoUri ? <NativeImage source={{ uri: spot.photoUri }} style={styles.cardPhoto} /> : <View style={{ backgroundColor: accent }} className="h-12 w-12 items-center justify-center rounded-2xl">{categoryIcon(spot.category, "white", 23)}</View>}<View style={{ backgroundColor: colors.surface }} className="absolute right-2 top-2 rounded-lg px-2 py-1"><Text style={{ color: accent }} className="text-[10px] font-extrabold">{spot.personalRating}/5</Text></View></View><View className="p-3"><Text style={{ color: colors.text }} numberOfLines={2} className="min-h-10 text-sm font-extrabold leading-5">{spot.name}</Text><Text style={{ color: accent }} numberOfLines={1} className="mt-2 text-[11px] font-extrabold">{spot.category}{distanceLabel(spot) ? ` · ${distanceLabel(spot)}` : ""}</Text><Text style={{ color: colors.muted }} numberOfLines={1} className="mt-1 text-xs">{spot.address}</Text></View></Pressable>; })}</View>
               ) : (
                 <View style={isDark ? { backgroundColor: colors.surfaceMuted } : undefined} className="items-center rounded-2xl bg-slate-100 py-10">
                   <Bookmark color="#94A3B8" size={30} />
@@ -2966,6 +2923,7 @@ export function HomeScreen({
                 <View className="mb-4 mt-7 flex-row items-center justify-between"><View className="flex-row items-center"><View style={{ backgroundColor: colors.surfaceMuted }} className="mr-2 h-9 w-9 items-center justify-center rounded-xl"><CalendarPlus color="#0F766E" size={17} /></View><View><Text style={{ color: colors.text }} className="font-extrabold">Plans</Text><Text style={{ color: colors.muted }} className="text-xs">Your next moments together</Text></View></View>{upcomingPlans.length ? <View style={{ backgroundColor: colors.surfaceMuted }} className="rounded-full px-2.5 py-1"><Text style={{ color: "#0F766E" }} className="text-xs font-extrabold">{upcomingPlans.length} upcoming</Text></View> : null}</View>
                 {nextPlan ? (() => { const mine = nextPlan.hostId === session.user.id; const invite = nextPlan.invites.find((item) => item.userId === session.user.id); const going = nextPlan.invites.filter((item) => item.status === "accepted").length + 1; const accent = categoryColors[nextPlan.spot?.category as Category] ?? "#0F766E"; return <Pressable onPress={() => setSelectedPlan(nextPlan)} style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="mb-5 overflow-hidden rounded-[28px] border"><View style={{ backgroundColor: `${accent}22` }} className="flex-row items-center px-4 py-3"><View style={{ backgroundColor: accent }} className="h-11 w-11 items-center justify-center rounded-2xl">{categoryIcon(nextPlan.spot?.category as Category ?? "Other", "white", 21)}</View><View className="ml-3 flex-1"><Text style={{ color: colors.text }} className="text-xs font-extrabold uppercase tracking-wide">Next up</Text><Text style={{ color: colors.muted }} numberOfLines={1} className="mt-0.5 text-xs">{formatPlanDate(nextPlan.scheduledAt, "full")}</Text></View><View style={{ backgroundColor: colors.surface }} className="rounded-xl px-2.5 py-1.5"><Text style={{ color: accent }} className="text-xs font-extrabold">{going} going</Text></View></View><View className="p-4"><Text style={{ color: colors.text }} numberOfLines={1} className="text-xl font-extrabold">{nextPlan.spot?.name ?? "Place"}</Text><Text style={{ color: colors.muted }} numberOfLines={1} className="mt-1 text-sm">{nextPlan.spot?.address ?? "Details available in plan"}</Text><View className="mt-4 flex-row items-center justify-between"><Text style={{ color: mine ? "#0F766E" : colors.muted }} className="text-sm font-bold">{mine ? "You’re hosting" : invite?.status === "pending" ? `Invited by @${nextPlan.host?.username ?? "friend"}` : `You’re ${invite?.status}`}</Text><View className="flex-row items-center"><Text style={{ color: colors.muted }} className="mr-1 text-xs font-bold">View plan</Text><ChevronDown color={colors.icon} size={17} style={{ transform: [{ rotate: "-90deg" }] }} /></View></View>{!mine && invite?.status === "pending" ? <View className="mt-4 flex-row gap-2"><Pressable onPress={() => respondToPlan(nextPlan.id, "accepted")} className="flex-1 rounded-xl bg-teal-700 py-3"><Text className="text-center text-sm font-extrabold text-white">I’m in</Text></Pressable><Pressable onPress={() => respondToPlan(nextPlan.id, "maybe")} style={{ backgroundColor: colors.surfaceMuted }} className="flex-1 rounded-xl py-3"><Text style={{ color: colors.text }} className="text-center text-sm font-extrabold">Maybe</Text></Pressable></View> : null}</View></Pressable>; })() : <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border }} className="mb-5 rounded-3xl border border-dashed p-5"><Text style={{ color: colors.text }} className="font-extrabold">Nothing in the diary yet</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm leading-5">Open a recommendation to make a plan with friends.</Text></View>}
                 {remainingPlans.length ? <><View className="mb-3 mt-1 flex-row items-center justify-between"><Text style={{ color: colors.text }} className="text-sm font-extrabold">More plans</Text><Text style={{ color: colors.muted }} className="text-xs font-bold">Swipe to browse</Text></View><ScrollView horizontal showsHorizontalScrollIndicator={false} decelerationRate="fast" snapToInterval={272} disableIntervalMomentum contentContainerStyle={{ paddingRight: 20 }}>{remainingPlans.map((plan) => { const accent = categoryColors[plan.spot?.category as Category] ?? "#0F766E"; const invite = plan.invites.find((item) => item.userId === session.user.id); return <Pressable key={plan.id} onPress={() => setSelectedPlan(plan)} style={{ width: 256, backgroundColor: colors.surface, borderColor: colors.border }} className="mr-4 overflow-hidden rounded-3xl border"><View style={{ backgroundColor: `${accent}20` }} className="h-24 justify-between p-4"><View style={{ backgroundColor: accent }} className="h-9 w-9 items-center justify-center rounded-xl">{categoryIcon(plan.spot?.category as Category ?? "Other", "white", 18)}</View><Text style={{ color: accent }} className="text-xs font-extrabold">{formatPlanDate(plan.scheduledAt)}</Text></View><View className="p-4"><Text style={{ color: colors.text }} numberOfLines={1} className="text-base font-extrabold">{plan.spot?.name ?? "Place"}</Text><Text style={{ color: colors.muted }} numberOfLines={1} className="mt-1 text-xs">{plan.spot?.address ?? "Details in plan"}</Text><View className="mt-4 flex-row items-center justify-between"><Text style={{ color: plan.hostId === session.user.id ? "#0F766E" : colors.muted }} className="text-xs font-extrabold">{plan.hostId === session.user.id ? "You’re hosting" : invite?.status === "pending" ? "RSVP needed" : `You’re ${invite?.status}`}</Text><ChevronDown color={colors.muted} size={16} style={{ transform: [{ rotate: "-90deg" }] }} /></View></View></Pressable>; })}</ScrollView></> : null}
+                <Pressable onPress={() => { setMapMode("friends"); setIsTopBarCollapsed(false); navigateToTab("map"); }} style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border }} className="mt-5 flex-row items-center rounded-2xl border border-dashed px-4 py-4"><View style={{ backgroundColor: isDark ? "#153E3C" : "#DFF1EE" }} className="h-10 w-10 items-center justify-center rounded-xl"><MapPin color="#0F766E" size={20} /></View><View className="ml-3 flex-1"><Text style={{ color: colors.text }} className="font-extrabold">Pick the next place</Text><Text style={{ color: colors.muted }} className="mt-0.5 text-xs">Browse places your friends have shared.</Text></View><ChevronDown color="#0F766E" size={18} style={{ transform: [{ rotate: "-90deg" }] }} /></Pressable>
                 </>}
                 {friendsView === "requests" && <>
                 <View className="mb-3 mt-7 flex-row items-center justify-between">
