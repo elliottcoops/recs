@@ -72,6 +72,27 @@ CREATE TABLE IF NOT EXISTS reviews (
   created_at TEXT NOT NULL,
   UNIQUE(spot_id, user_id)
 );
+CREATE TABLE IF NOT EXISTS reports (
+  id TEXT PRIMARY KEY,
+  reporter_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_type TEXT NOT NULL CHECK (target_type IN ('spot', 'user')),
+  target_id TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  UNIQUE(reporter_id, target_type, target_id)
+);
+CREATE INDEX IF NOT EXISTS reports_target ON reports(target_type, target_id);
+CREATE TABLE IF NOT EXISTS activity (
+  id TEXT PRIMARY KEY,
+  recipient_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  actor_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  type TEXT NOT NULL,
+  entity_id TEXT,
+  payload TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  read_at TEXT
+);
+CREATE INDEX IF NOT EXISTS activity_recipient_created ON activity(recipient_id, created_at DESC);
 CREATE TABLE IF NOT EXISTS plans (
   id TEXT PRIMARY KEY,
   spot_id TEXT NOT NULL REFERENCES spots(id) ON DELETE CASCADE,

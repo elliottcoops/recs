@@ -9,6 +9,7 @@ import * as Haptics from "expo-haptics";
 import * as Notifications from "expo-notifications";
 import {
   Bike,
+  Bell,
   Bookmark,
   CalendarPlus,
   Check,
@@ -35,6 +36,7 @@ import {
   Plus,
   Salad,
   Search,
+  Share2,
   Settings as SettingsIcon,
   ShoppingBag,
   Star,
@@ -59,6 +61,7 @@ import {
   Platform,
   Pressable as RNPressable,
   ScrollView,
+  Share as NativeShare,
   Switch,
   StyleSheet,
   Text as RNText,
@@ -118,6 +121,14 @@ type FriendProfile = {
   locationCount: number;
   friendCount: number;
   spots: Spot[];
+};
+type ActivityItem = {
+  id: string;
+  type: "friend_request" | "friend_accepted" | "recommendation" | "plan_invite" | "plan_rsvp";
+  entity_id: string | null;
+  payload: { name?: string; spotName?: string; scheduledAt?: string; status?: string };
+  created_at: string;
+  actor: Pick<User, "id" | "name" | "username"> | null;
 };
 // Public recommendations belong in Discover. The map is deliberately limited
 // to the user's own and friends' places so it remains a personal planning map.
@@ -298,6 +309,14 @@ export function HomeScreen({
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [isFriendFeedbackOpen, setIsFriendFeedbackOpen] = useState(false);
   const [isUpdatingSharing, setIsUpdatingSharing] = useState(false);
+  const [isEditSpotOpen, setIsEditSpotOpen] = useState(false);
+  const [editSpotCategory, setEditSpotCategory] = useState<Category>("Coffee");
+  const [editSpotRating, setEditSpotRating] = useState<number>(5);
+  const [editSpotDescription, setEditSpotDescription] = useState("");
+  const [editSpotVisibility, setEditSpotVisibility] = useState<Visibility>("private");
+  const [isSavingSpotEdit, setIsSavingSpotEdit] = useState(false);
+  const [isReportOpen, setIsReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [discoverIndex, setDiscoverIndex] = useState(0);
   const [discoverSpots, setDiscoverSpots] = useState<Spot[]>([]);
@@ -354,6 +373,7 @@ export function HomeScreen({
   const [incomingRequests, setIncomingRequests] = useState<
     { id: string; user: User }[]
   >([]);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [selectedFriendProfile, setSelectedFriendProfile] =
     useState<FriendProfile | null>(null);
   const [isFriendProfileLoading, setIsFriendProfileLoading] = useState(false);
@@ -364,7 +384,7 @@ export function HomeScreen({
   const [savedCategory, setSavedCategory] = useState<Category | "All">("All");
   const [plans, setPlans] = useState<Plan[]>([]);
   const [selectedPlannerDate, setSelectedPlannerDate] = useState<string | null>(null);
-  const [friendsView, setFriendsView] = useState<"plans" | "circle" | "requests">("plans");
+  const [friendsView, setFriendsView] = useState<"plans" | "circle" | "requests" | "activity">("plans");
   const upcomingPlans = plans.filter(
     (plan) => new Date(plan.scheduledAt).getTime() > Date.now(),
   );
@@ -539,8 +559,17 @@ export function HomeScreen({
     }
   };
 
+  const loadActivity = async () => {
+    if (!API_BASE_URL) return;
+    const response = await fetch(`${API_BASE_URL}/api/activity`, {
+      headers: { Authorization: `Bearer ${session.token}` },
+    });
+    if (response.ok) setActivity(await response.json());
+  };
+
   useEffect(() => {
     void loadFriends();
+    void loadActivity();
   }, [session.token]);
 
   const loadSaved = async () => {
@@ -882,6 +911,55 @@ export function HomeScreen({
     setDiscoveryQuery(place.name);
     setLocationResults([]);
     mapRef.current?.animateToRegion(nextRegion, 360);
+  };
+
+  const openSpotEditor = (spot: Spot) => {
+    setEditSpotCategory(spot.category);
+    setEditSpotRating(spot.personalRating);
+    setEditSpotDescription(spot.description);
+    setEditSpotVisibility(spot.visibility);
+    setIsEditSpotOpen(true);
+  };
+
+  const saveSpotEdit = async () => {
+    if (!API_BASE_URL || !selectedSpot) return;
+    setIsSavingSpotEdit(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/spots/${encodeURIComponent(selectedSpot.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+        body: JSON.stringify({ category: editSpotCategory, personalRating: editSpotRating, description: editSpotDescription, visibility: editSpotVisibility }),
+      });
+      const body = (await response.json()) as Spot & { error?: string };
+      if (!response.ok) throw new Error(body.error ?? "Could not update recommendation.");
+      setSelectedSpot(body);
+      setSpots((current) => current.map((spot) => spot.id === body.id ? body : spot));
+      setSavedSpots((current) => current.map((spot) => spot.id === body.id ? body : spot));
+      setIsEditSpotOpen(false);
+      successHaptic();
+    } catch (reason) {
+      Alert.alert("Could not save changes", reason instanceof Error ? reason.message : "Please try again.");
+    } finally {
+      setIsSavingSpotEdit(false);
+    }
+  };
+
+  const submitSpotReport = async () => {
+    if (!API_BASE_URL || !selectedSpot || !reportReason.trim()) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/reports`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+        body: JSON.stringify({ targetType: "spot", targetId: selectedSpot.id, reason: reportReason }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error ?? "Could not send report.");
+      setReportReason("");
+      setIsReportOpen(false);
+      Alert.alert("Report received", "Thanks — we’ll review this recommendation.");
+    } catch (reason) {
+      Alert.alert("Could not send report", reason instanceof Error ? reason.message : "Please try again.");
+    }
   };
 
   const searchDiscoverLocation = async () => {
@@ -1497,6 +1575,16 @@ export function HomeScreen({
     }
     void openDirections(spot, preferences.directionsApp);
   };
+  const shareRecommendation = async (spot: Spot) => {
+    try {
+      await NativeShare.share({
+        title: spot.name,
+        message: `${spot.name} · ${spot.category} · ${spot.personalRating}/5\n${spot.address}${spot.description ? `\n\n${spot.description}` : ""}\n\nRecommended on Recs.`,
+      });
+    } catch {
+      // The native sheet can be dismissed without taking an action.
+    }
+  };
   const navItemSurface = (tab: AppTab) =>
     activeTab === tab
       ? { backgroundColor: isDark ? "#153E3C" : "#DFF1EE" }
@@ -1793,6 +1881,7 @@ export function HomeScreen({
                   <View className="mt-4 rounded-2xl bg-teal-50 p-4"><View className="flex-row items-center justify-between"><Text style={isDark ? { color: colors.text } : undefined} className="text-xs font-extrabold uppercase tracking-wide text-teal-700">@{selectedSpot.pinnedBy.replace(/^@/, "")} recommends</Text><Text style={isDark ? { color: colors.text } : undefined} className="text-xs font-bold text-teal-700">{selectedSpot.category}</Text></View><Text style={isDark ? { color: colors.text } : undefined} className="mt-2 text-base leading-6 text-slate-800">{selectedSpot.description || "No note added yet."}</Text></View>
                   <View className="mt-3 flex-row gap-3"><Pressable onPress={() => getDirections(selectedSpot)} className="flex-1 flex-row items-center justify-center rounded-2xl bg-slate-900 py-3.5"><Navigation color="white" size={18} /><Text style={isDark ? { color: colors.text } : undefined} className="ml-2 font-bold text-white">Directions</Text></Pressable><Pressable onPress={() => toggleSaved(selectedSpot)} className={`flex-row items-center justify-center rounded-2xl px-4 ${savedSpots.some((spot) => spot.id === selectedSpot.id) ? "bg-amber-400" : "bg-slate-100"}`}><Bookmark color={savedSpots.some((spot) => spot.id === selectedSpot.id) ? "white" : "#0F766E"} size={20} fill={savedSpots.some((spot) => spot.id === selectedSpot.id) ? "white" : "transparent"} /><Text style={isDark ? { color: colors.text } : undefined} className={`ml-2 text-xs font-extrabold ${savedSpots.some((spot) => spot.id === selectedSpot.id) ? "text-white" : "text-teal-700"}`}>{savedSpots.some((spot) => spot.id === selectedSpot.id) ? "Saved" : "Save"}</Text></Pressable></View>
                   <Pressable onPress={openSchedule} className="mt-3 flex-row items-center justify-center rounded-2xl bg-teal-700 py-3"><CalendarPlus color="white" size={18} /><Text style={isDark ? { color: colors.text } : undefined} className="ml-2 font-bold text-white">Make a plan</Text></Pressable>
+                  <Pressable onPress={() => setIsReportOpen(true)} className="mt-3 items-center py-2"><Text style={{ color: colors.muted }} className="text-xs font-bold">Report this recommendation</Text></Pressable>
                   {(selectedSpot.communityRatingCount || selectedSpot.comments?.length) ? <View className="mt-4 flex-row items-center justify-between rounded-2xl bg-amber-50 px-4 py-3"><View><Text style={isDark ? { color: colors.text } : undefined} className="font-bold text-amber-900">Friends' verdict</Text><Text style={isDark ? { color: colors.text } : undefined} className="mt-0.5 text-xs text-amber-800">{selectedSpot.communityRatingCount ?? 0} rating{selectedSpot.communityRatingCount === 1 ? "" : "s"}{selectedSpot.comments?.length ? ` · ${selectedSpot.comments.length} note${selectedSpot.comments.length === 1 ? "" : "s"}` : ""}</Text></View><View className="flex-row items-center"><Star color="#F59E0B" size={17} fill="#F59E0B" /><Text style={isDark ? { color: colors.text } : undefined} className="ml-1 font-extrabold text-amber-900">{selectedSpot.communityRating ?? "—"}/5</Text></View></View> : null}
                   <Pressable onPress={() => setIsFriendFeedbackOpen((current) => !current)} className="mt-3 flex-row items-center justify-between rounded-2xl bg-slate-100 px-4 py-3"><View><Text style={isDark ? { color: colors.text } : undefined} className="font-bold text-slate-900">Add your take</Text><Text style={isDark ? { color: colors.text } : undefined} className="mt-0.5 text-xs text-slate-500">Rate it or leave a short note for friends.</Text></View><ChevronDown color="#0F766E" size={19} style={{ transform: [{ rotate: isFriendFeedbackOpen ? "180deg" : "0deg" }] }} /></Pressable>
                   {isFriendFeedbackOpen && <View style={isDark ? { backgroundColor: colors.surfaceMuted } : undefined} className="mt-2 rounded-2xl bg-slate-100 p-3"><View className="flex-row gap-2">{[1, 2, 3, 4, 5].map((score) => <Pressable key={score} onPress={() => setFeedbackRating(score)} className={`h-9 w-9 items-center justify-center rounded-full ${feedbackRating === score ? "bg-amber-400" : "bg-white"}`}><Star color={feedbackRating === score ? "white" : "#F59E0B"} size={17} fill={feedbackRating === score ? "white" : "transparent"} /></Pressable>)}</View><TextInput style={isDark ? { color: colors.text, backgroundColor: colors.surfaceMuted } : undefined} value={feedbackComment} onChangeText={setFeedbackComment} placeholder="What did you think? (optional)" placeholderTextColor="#94A3B8" maxLength={280} multiline textAlignVertical="top" className="mt-3 min-h-20 rounded-xl bg-white px-3 py-3 text-base leading-6 text-slate-900" /><Pressable disabled={feedbackRating === null || isSubmittingFeedback} onPress={() => void submitSpotFeedback()} className={`mt-3 rounded-xl py-3 ${feedbackRating === null || isSubmittingFeedback ? "bg-slate-300" : "bg-teal-700"}`}><Text style={isDark ? { color: colors.text } : undefined} className="text-center font-extrabold text-white">{isSubmittingFeedback ? "Saving…" : "Post rating"}</Text></Pressable></View>}
@@ -1957,15 +2046,13 @@ export function HomeScreen({
                 </Text>
               </Pressable>
               {selectedSpot.userId === session.user.id && (
-                <Pressable
+                <><Pressable onPress={() => openSpotEditor(selectedSpot)} className="mt-3 flex-row items-center justify-center rounded-2xl bg-slate-100 py-3"><SettingsIcon color="#0F766E" size={17} /><Text style={{ color: "#0F766E" }} className="ml-2 font-bold">Edit recommendation</Text></Pressable><Pressable
                   onPress={() => deleteSpot(selectedSpot)}
                   className="mt-3 flex-row items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 py-3"
                 >
                   <Trash2 color="#E11D48" size={17} />
-                  <Text style={isDark ? { color: colors.text } : undefined} className="ml-2 font-bold text-rose-600">
-                    Delete pin
-                  </Text>
-                </Pressable>
+                  <Text style={{ color: "#E11D48" }} className="ml-2 font-bold">Delete pin</Text>
+                </Pressable></>
               )}
               {selectedSpot.userId !== session.user.id &&
                 selectedSpot.visibility !== "private" && (
@@ -2183,7 +2270,7 @@ export function HomeScreen({
                         <View style={{ backgroundColor: "rgba(15, 23, 42, 0.72)" }} className="absolute left-4 top-4 rounded-full px-3 py-1.5"><Text className="text-xs font-extrabold text-white">{index + 1} of {discoverableSpots.length}</Text></View>
                       </View>
                       <View className="flex-1 p-5">
-                        <View className="flex-row items-start justify-between"><View className="mr-3 flex-1"><Text style={{ color: colors.text }} numberOfLines={2} className="text-2xl font-extrabold leading-7">{spot.name}</Text><Text style={{ color: categoryColors[spot.category] }} className="mt-2 text-sm font-extrabold">{spot.category} · {spot.personalRating}/5</Text></View><Pressable onPress={() => toggleSaved(spot)} style={{ backgroundColor: savedSpots.some((saved) => saved.id === spot.id) ? "#FBBF24" : colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-2xl"><Bookmark color={savedSpots.some((saved) => saved.id === spot.id) ? "white" : "#0F766E"} size={21} fill={savedSpots.some((saved) => saved.id === spot.id) ? "white" : "transparent"} /></Pressable></View>
+                        <View className="flex-row items-start justify-between"><View className="mr-3 flex-1"><Text style={{ color: colors.text }} numberOfLines={2} className="text-2xl font-extrabold leading-7">{spot.name}</Text><Text style={{ color: categoryColors[spot.category] }} className="mt-2 text-sm font-extrabold">{spot.category} · {spot.personalRating}/5{distanceLabel(spot) ? ` · ${distanceLabel(spot)}` : ""}</Text></View><View className="flex-row gap-2"><Pressable accessibilityLabel={`Share ${spot.name}`} onPress={() => void shareRecommendation(spot)} style={{ backgroundColor: colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-2xl"><Share2 color="#0F766E" size={20} /></Pressable><Pressable accessibilityLabel={`Save ${spot.name} for later`} onPress={() => toggleSaved(spot)} style={{ backgroundColor: savedSpots.some((saved) => saved.id === spot.id) ? "#FBBF24" : colors.surfaceMuted }} className="h-11 w-11 items-center justify-center rounded-2xl"><Bookmark color={savedSpots.some((saved) => saved.id === spot.id) ? "white" : "#0F766E"} size={21} fill={savedSpots.some((saved) => saved.id === spot.id) ? "white" : "transparent"} /></Pressable></View></View>
                         <Text style={{ color: colors.muted }} numberOfLines={2} className="mt-3 text-sm leading-5">{spot.description || spot.note || spot.address}</Text>
                         <View className="mt-4 flex-1"><View className="flex-row items-center justify-between"><Text style={{ color: colors.muted }} className="text-xs font-bold">{spot.visibility === "friends" ? "FROM YOUR CIRCLE" : "FROM THE COMMUNITY"}</Text><Text style={{ color: categoryColors[spot.category] }} className="text-xs font-extrabold">{spot.communityRatingCount ? `${spot.communityRating?.toFixed(1)}/5 from ${spot.visibility === "friends" ? "friends" : "the community"}` : "New recommendation"}</Text></View>{spot.comments?.filter((comment) => comment.comment.trim()).slice(0, 2).map((comment) => <View key={comment.id} style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl p-3"><View className="flex-row items-center justify-between"><Text style={{ color: colors.text }} className="font-extrabold">@{comment.user.username}</Text><Text style={{ color: "#D97706" }} className="text-xs font-extrabold">★ {comment.rating}/5</Text></View><Text style={{ color: colors.muted }} numberOfLines={2} className="mt-1 text-sm leading-5">“{comment.comment}”</Text></View>) ?? null}{!spot.comments?.some((comment) => comment.comment.trim()) && <View style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl p-3"><Text style={{ color: colors.text }} className="font-bold">{spot.pinnedBy || (spot.visibility === "friends" ? "Someone in your circle" : "Someone nearby")} recommends this</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm">Open it on the map to add your own rating or comment.</Text></View>}</View>
                         <View className="mt-4"><Text style={{ color: colors.muted }} className="mb-2 text-center text-xs font-bold">{index < discoverableSpots.length - 1 ? "Swipe up for the next pick" : "You’ve seen every nearby pick"}</Text><View className="flex-row gap-2"><Pressable onPress={() => getDirections(spot)} className="flex-1 rounded-2xl bg-slate-900 py-3.5"><Text className="text-center font-extrabold text-white">Directions</Text></Pressable><Pressable onPress={() => { navigateToTab("map"); requestAnimationFrame(() => openSpot(spot)); }} className="flex-1 rounded-2xl bg-teal-700 py-3.5"><Text className="text-center font-extrabold text-white">See on map</Text></Pressable></View>{index < discoverableSpots.length - 1 ? <Pressable onPress={() => { const next = index + 1; discoverPagerRef.current?.scrollTo({ y: next * discoverPageHeight, animated: true }); setDiscoverIndex(next); }} style={{ backgroundColor: colors.surfaceMuted }} className="mt-2 rounded-2xl py-3"><Text style={{ color: colors.text }} className="text-center text-sm font-extrabold">Next pick</Text></Pressable> : null}</View>
@@ -2208,6 +2295,24 @@ export function HomeScreen({
               {isDiscoverLocationSearching ? <ActivityIndicator style={{ marginVertical: 18 }} color="#0F766E" /> : <ScrollView className="mt-2" showsVerticalScrollIndicator={false}>{discoverLocationResults.map((place) => <Pressable key={place.placeId} onPress={() => selectDiscoverLocation(place)} style={{ borderColor: colors.border }} className="flex-row items-center border-b px-1 py-3"><MapPin color="#0F766E" size={17} /><View className="ml-3 flex-1"><Text style={{ color: colors.text }} numberOfLines={1} className="font-extrabold">{place.name}</Text><Text style={{ color: colors.muted }} numberOfLines={1} className="mt-0.5 text-xs">{place.address}</Text></View><ChevronDown color={colors.muted} size={17} style={{ transform: [{ rotate: "-90deg" }] }} /></Pressable>)}</ScrollView>}
             </View>
           </View>
+        </KeyboardAvoidingView>
+      </Modal>
+      <Modal
+        visible={isReportOpen}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setIsReportOpen(false)}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1"><View className="flex-1 justify-center bg-black/40 px-5"><View style={{ backgroundColor: colors.surface }} className="rounded-[28px] p-5"><View className="flex-row items-center justify-between"><View><Text style={{ color: colors.text }} className="text-xl font-extrabold">Report recommendation</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm">Help keep Discover useful and safe.</Text></View><Pressable onPress={() => setIsReportOpen(false)} style={{ backgroundColor: colors.surfaceMuted }} className="h-9 w-9 items-center justify-center rounded-full"><X color={colors.icon} size={19} /></Pressable></View><TextInput value={reportReason} onChangeText={setReportReason} placeholder="What is wrong with this recommendation?" placeholderTextColor={colors.muted} multiline maxLength={280} textAlignVertical="top" className="mt-5 min-h-28 rounded-2xl px-4 py-3 text-base" /><Pressable disabled={!reportReason.trim()} onPress={() => void submitSpotReport()} className={`mt-4 rounded-2xl py-4 ${reportReason.trim() ? "bg-rose-600" : "bg-slate-300"}`}><Text className="text-center font-extrabold text-white">Send report</Text></Pressable></View></View></KeyboardAvoidingView>
+      </Modal>
+      <Modal
+        visible={isEditSpotOpen}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setIsEditSpotOpen(false)}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1">
+          <View className="flex-1 justify-center bg-black/40 px-5"><View style={{ backgroundColor: colors.surface }} className="max-h-[84%] rounded-[28px] p-5"><View className="flex-row items-center justify-between"><View><Text style={{ color: colors.text }} className="text-xl font-extrabold">Edit recommendation</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm">Update the details your friends see.</Text></View><Pressable onPress={() => setIsEditSpotOpen(false)} style={{ backgroundColor: colors.surfaceMuted }} className="h-9 w-9 items-center justify-center rounded-full"><X color={colors.icon} size={19} /></Pressable></View><Text style={{ color: colors.muted }} className="mb-2 mt-5 text-xs font-extrabold uppercase tracking-wide">Category</Text><ScrollView horizontal showsHorizontalScrollIndicator={false}>{categories.map((item) => <Pressable key={item} onPress={() => setEditSpotCategory(item)} style={{ backgroundColor: editSpotCategory === item ? categoryColors[item] : colors.surfaceMuted }} className="mr-2 rounded-full px-3 py-2"><Text style={{ color: editSpotCategory === item ? "white" : colors.text }} className="text-xs font-extrabold">{item}</Text></Pressable>)}</ScrollView><Text style={{ color: colors.muted }} className="mb-2 mt-5 text-xs font-extrabold uppercase tracking-wide">Your rating</Text><View className="flex-row gap-2">{[1,2,3,4,5].map((score) => <Pressable key={score} onPress={() => setEditSpotRating(score)} style={{ backgroundColor: editSpotRating === score ? "#F59E0B" : colors.surfaceMuted }} className="h-10 w-10 items-center justify-center rounded-full"><Star color={editSpotRating === score ? "white" : "#F59E0B"} size={18} fill={editSpotRating === score ? "white" : "transparent"} /></Pressable>)}</View><TextInput value={editSpotDescription} onChangeText={setEditSpotDescription} placeholder="Add a short note (optional)" placeholderTextColor={colors.muted} multiline maxLength={280} textAlignVertical="top" className="mt-5 min-h-24 rounded-2xl px-4 py-3 text-base" /><View style={{ backgroundColor: colors.surfaceMuted }} className="mt-4 flex-row rounded-xl p-1">{(["private", "friends", "public"] as Visibility[]).map((option) => <Pressable key={option} onPress={() => setEditSpotVisibility(option)} style={editSpotVisibility === option ? { backgroundColor: colors.surface } : undefined} className="flex-1 rounded-lg py-2"><Text style={{ color: editSpotVisibility === option ? "#0F766E" : colors.muted }} className="text-center text-[10px] font-extrabold">{option === "private" ? "Only me" : option === "friends" ? "Friends" : "Public"}</Text></Pressable>)}</View><Pressable disabled={isSavingSpotEdit} onPress={() => void saveSpotEdit()} className={`mt-5 rounded-2xl py-4 ${isSavingSpotEdit ? "bg-slate-300" : "bg-teal-700"}`}><Text className="text-center font-extrabold text-white">{isSavingSpotEdit ? "Saving…" : "Save changes"}</Text></Pressable></View></View>
         </KeyboardAvoidingView>
       </Modal>
       <Modal
@@ -2810,10 +2915,10 @@ export function HomeScreen({
               </Pressable>
             </View>
             <View style={{ backgroundColor: colors.surfaceMuted }} className="mt-5 flex-row rounded-2xl p-1">
-              {(["plans", "circle", "requests"] as const).map((view) => {
-                const label = view === "plans" ? "Plans" : view === "circle" ? "Circle" : "Requests";
-                const badge = view === "requests" ? incomingRequests.length : 0;
-                return <Pressable key={view} onPress={() => setFriendsView(view)} style={friendsView === view ? { backgroundColor: colors.surface } : undefined} className="flex-1 flex-row items-center justify-center rounded-xl py-2.5">
+              {(["plans", "activity", "circle", "requests"] as const).map((view) => {
+                const label = view === "plans" ? "Plans" : view === "circle" ? "Circle" : view === "activity" ? "Updates" : "Requests";
+                const badge = view === "requests" ? incomingRequests.length : view === "activity" ? activity.length : 0;
+                return <Pressable key={view} onPress={() => { setFriendsView(view); if (view === "activity") void loadActivity(); }} style={friendsView === view ? { backgroundColor: colors.surface } : undefined} className="flex-1 flex-row items-center justify-center rounded-xl py-2.5">
                   <Text style={{ color: friendsView === view ? "#0F766E" : colors.muted }} className="text-xs font-extrabold">{label}</Text>
                   {badge ? <View className="ml-1.5 min-w-4 items-center rounded-full bg-rose-500 px-1"><Text className="text-[10px] font-extrabold text-white">{badge}</Text></View> : null}
                 </Pressable>;
@@ -3004,6 +3109,14 @@ export function HomeScreen({
                     </Text>
                   </View>
                 )}
+                </>}
+                {friendsView === "activity" && <>
+                  <View className="mb-3 mt-7 flex-row items-center justify-between"><View className="flex-row items-center"><View style={{ backgroundColor: colors.surfaceMuted }} className="mr-2 h-8 w-8 items-center justify-center rounded-xl"><Bell color="#0F766E" size={16} /></View><View><Text style={{ color: colors.text }} className="font-extrabold">Updates</Text><Text style={{ color: colors.muted }} className="text-xs">What’s new in your circle</Text></View></View>{activity.length ? <View style={{ backgroundColor: colors.surfaceMuted }} className="rounded-full px-2.5 py-1"><Text style={{ color: colors.text }} className="text-xs font-extrabold">{activity.length}</Text></View> : null}</View>
+                  {activity.length ? activity.map((item) => {
+                    const actor = item.actor ? `@${item.actor.username}` : "Someone";
+                    const message = item.type === "friend_request" ? `${actor} sent you a friend request` : item.type === "friend_accepted" ? `${actor} accepted your friend request` : item.type === "recommendation" ? `${actor} shared ${item.payload.name ?? "a recommendation"}` : item.type === "plan_invite" ? `${actor} invited you to ${item.payload.spotName ?? "a plan"}` : `${actor} is ${item.payload.status ?? "responding"} to your plan`;
+                    return <View key={item.id} style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="mb-3 flex-row items-start rounded-2xl border p-4"><View style={{ backgroundColor: colors.surfaceMuted }} className="mr-3 h-10 w-10 items-center justify-center rounded-2xl"><Bell color="#0F766E" size={18} /></View><View className="flex-1"><Text style={{ color: colors.text }} className="font-bold leading-5">{message}</Text><Text style={{ color: colors.muted }} className="mt-1 text-xs">{new Date(item.created_at).toLocaleDateString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</Text></View></View>;
+                  }) : <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border }} className="rounded-2xl border border-dashed p-5"><Text style={{ color: colors.text }} className="font-bold">You’re all caught up</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm leading-5">Friend requests, shared places and plan replies will appear here.</Text></View>}
                 </>}
                 {friendsView === "requests" && <>
                 <View className="mb-3 mt-7 flex-row items-center justify-between">
