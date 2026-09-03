@@ -382,6 +382,8 @@ export function HomeScreen({
   const [savedSpots, setSavedSpots] = useState<Spot[]>([]);
   const [savedSort, setSavedSort] = useState<"nearest" | "recent">("nearest");
   const [savedCategory, setSavedCategory] = useState<Category | "All">("All");
+  const [isSavedCategoryPickerOpen, setIsSavedCategoryPickerOpen] = useState(false);
+  const [savedCategorySearch, setSavedCategorySearch] = useState("");
   const [plans, setPlans] = useState<Plan[]>([]);
   const [selectedPlannerDate, setSelectedPlannerDate] = useState<string | null>(null);
   const [friendsView, setFriendsView] = useState<"plans" | "circle" | "requests" | "activity">("plans");
@@ -439,6 +441,9 @@ export function HomeScreen({
         (second.longitude - userLocation.longitude) ** 2;
       return firstDistance - secondDistance;
     });
+  const savedCategoryMatches = (["All", ...categories] as (Category | "All")[]).filter((item) =>
+    item.toLowerCase().includes(savedCategorySearch.trim().toLowerCase()),
+  );
   const distanceLabel = (spot: Spot) => {
     if (!userLocation) return null;
     const latitudeRadians = (userLocation.latitude * Math.PI) / 180;
@@ -2715,28 +2720,7 @@ export function HomeScreen({
                   </Text>
                 </Pressable>
               </View>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                className="mt-3"
-              >
-                {(["All", ...categories] as (Category | "All")[]).map(
-                  (item) => (
-                    <Pressable
-                      key={item}
-                      onPress={() => setSavedCategory(item)}
-                      style={{ backgroundColor: savedCategory === item ? "#FBBF24" : colors.surfaceMuted }}
-                      className={`mr-2 rounded-full px-3 py-2 ${savedCategory === item ? "bg-amber-400" : "bg-slate-100"}`}
-                    >
-                      <Text style={isDark ? { color: colors.text } : undefined}
-                        className={`text-xs font-extrabold ${savedCategory === item ? "text-white" : "text-slate-600"}`}
-                      >
-                        {item}
-                      </Text>
-                    </Pressable>
-                  ),
-                )}
-              </ScrollView>
+              <Pressable onPress={() => { setSavedCategorySearch(""); setIsSavedCategoryPickerOpen(true); }} style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border }} className="mt-3 flex-row items-center rounded-xl border px-3 py-3"><Palette color="#0F766E" size={18} /><View className="ml-2 flex-1"><Text style={{ color: colors.muted }} className="text-[10px] font-extrabold uppercase tracking-wide">Category</Text><Text style={{ color: colors.text }} className="mt-0.5 text-sm font-extrabold">{savedCategory === "All" ? "All saved places" : savedCategory}</Text></View><ChevronDown color={colors.icon} size={18} /></Pressable>
             </View>
             <ScrollView className="mt-5" showsVerticalScrollIndicator={false}>
               {filteredSavedSpots.length ? (
@@ -2799,6 +2783,10 @@ export function HomeScreen({
           </View>
         </SafeAreaView>
       </SavedScreen>
+
+      <Modal visible={isSavedCategoryPickerOpen} animationType="fade" transparent onRequestClose={() => setIsSavedCategoryPickerOpen(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1"><View className="flex-1 justify-end bg-black/40"><View style={{ backgroundColor: colors.surface }} className="max-h-[78%] rounded-t-[30px] px-5 pb-10 pt-4"><View className="mb-5 h-1.5 w-11 self-center rounded-full" style={{ backgroundColor: colors.border }} /><View className="flex-row items-center justify-between"><View><Text style={{ color: colors.text }} className="text-xl font-extrabold">Filter saved places</Text><Text style={{ color: colors.muted }} className="mt-1 text-sm">Choose one category to narrow your shortlist.</Text></View><Pressable onPress={() => setIsSavedCategoryPickerOpen(false)} style={{ backgroundColor: colors.surfaceMuted }} className="h-10 w-10 items-center justify-center rounded-full"><X color={colors.icon} size={20} /></Pressable></View><View style={{ backgroundColor: colors.surfaceMuted }} className="mt-5 flex-row items-center rounded-2xl px-3"><Search color={colors.muted} size={18} /><TextInput value={savedCategorySearch} onChangeText={setSavedCategorySearch} placeholder="Search categories" placeholderTextColor={colors.muted} autoCapitalize="none" className="ml-2 flex-1 py-3.5 text-base" /></View><ScrollView className="mt-3" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>{savedCategoryMatches.map((item) => <Pressable key={item} onPress={() => { setSavedCategory(item); setIsSavedCategoryPickerOpen(false); }} style={{ backgroundColor: savedCategory === item ? (isDark ? "#153E3C" : "#DFF1EE") : colors.surface, borderColor: colors.border }} className="mb-2 flex-row items-center rounded-2xl border px-4 py-4"><View style={{ backgroundColor: savedCategory === item ? "#0F766E" : colors.surfaceMuted }} className="h-8 w-8 items-center justify-center rounded-xl">{savedCategory === item ? <Check color="white" size={17} /> : categoryIcon(item === "All" ? "Other" : item, "#0F766E", 17)}</View><Text style={{ color: colors.text }} className="ml-3 flex-1 font-extrabold">{item === "All" ? "All saved places" : item}</Text>{item === "All" ? <Text style={{ color: colors.muted }} className="text-xs font-bold">{savedSpots.length}</Text> : null}</Pressable>)}</ScrollView></View></View></KeyboardAvoidingView>
+      </Modal>
 
       <Modal
         visible={isScheduleOpen}
