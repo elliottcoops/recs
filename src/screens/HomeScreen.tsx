@@ -513,7 +513,7 @@ export function HomeScreen({
       return;
     }
     setIsDiscoverLoading(true);
-    const params = new URLSearchParams({ mode: "discover", latitude: String(origin.latitude), longitude: String(origin.longitude), latitudeDelta: String(region.latitudeDelta), longitudeDelta: String(region.longitudeDelta), radiusMiles: String(radiusMiles), cluster: "0", filters: mapFilters.join(",") });
+    const params = new URLSearchParams({ mode: "discover", latitude: String(origin.latitude), longitude: String(origin.longitude), latitudeDelta: String(region.latitudeDelta), longitudeDelta: String(region.longitudeDelta), radiusMiles: String(radiusMiles), cluster: "0", filters: "" });
     try {
       const response = await fetch(`${API_BASE_URL}/api/spots?${params}`, { headers: { Authorization: `Bearer ${session.token}` } });
       if (!response.ok) return;
