@@ -7,5 +7,5 @@ type Props = { active: boolean; opacity: Animated.Value; children: ReactNode };
 export function SavedScreen({ active, opacity, children }: Props) {
   const { colors } = useTheme();
   if (!active) return null;
-  return <Animated.View style={[StyleSheet.absoluteFillObject, { opacity, backgroundColor: colors.background }]}>{children}</Animated.View>;
+  return <Animated.View style={[StyleSheet.absoluteFill, { opacity, backgroundColor: colors.background }]}>{children}</Animated.View>;
 }

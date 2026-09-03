@@ -14,8 +14,8 @@ import { ThemeProvider, useTheme } from "./src/theme";
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "");
 
 function ThemedStatusBar() {
-  const { isDark, colors } = useTheme();
-  return <StatusBar style={isDark ? "light" : "dark"} backgroundColor={colors.background} />;
+  const { isDark } = useTheme();
+  return <StatusBar style={isDark ? "light" : "dark"} />;
 }
 
 export default function App() {

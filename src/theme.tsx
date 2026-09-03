@@ -3,6 +3,7 @@ import { Appearance } from "react-native";
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
 
 export type ThemeMode = "light" | "dark" | "system";
+const systemTheme = (value: string | null | undefined): "light" | "dark" => value === "dark" ? "dark" : "light";
 
 // A soft blue-grey canvas and ink-led typography make both modes feel more
 // editorial than the default white/slate treatment, while teal remains Recs'
@@ -19,10 +20,10 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>("system");
-  const [system, setSystem] = useState(Appearance.getColorScheme() ?? "light");
+  const [system, setSystem] = useState<"light" | "dark">(systemTheme(Appearance.getColorScheme()));
   useEffect(() => { SecureStore.getItemAsync("recs-theme-mode").then((value) => { if (isThemeMode(value)) setModeState(value); }).catch(() => undefined); }, []);
-  useEffect(() => Appearance.addChangeListener(({ colorScheme }) => setSystem(colorScheme ?? "light")).remove, []);
-  useEffect(() => { Appearance.setColorScheme(mode === "system" ? null : mode); }, [mode]);
+  useEffect(() => Appearance.addChangeListener(({ colorScheme }) => setSystem(systemTheme(colorScheme))).remove, []);
+  useEffect(() => { Appearance.setColorScheme(mode === "system" ? "unspecified" : mode); }, [mode]);
   const setMode = (next: ThemeMode) => { setModeState(next); void SecureStore.setItemAsync("recs-theme-mode", next); };
   const { isDark, colors } = resolveTheme(mode, system);
   const value = useMemo(() => ({ mode, isDark, colors, setMode }), [mode, isDark, colors]);

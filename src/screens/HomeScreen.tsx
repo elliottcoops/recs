@@ -119,7 +119,9 @@ type FriendProfile = {
   friendCount: number;
   spots: Spot[];
 };
-type MapMode = "mine" | "friends" | "public";
+// Public recommendations belong in Discover. The map is deliberately limited
+// to the user's own and friends' places so it remains a personal planning map.
+type MapMode = "mine" | "friends";
 
 const INITIAL_REGION: Region = {
   latitude: 51.5248,
@@ -566,7 +568,7 @@ export function HomeScreen({
     SecureStore.getItemAsync(`recs-preferences-${session.user.id}`).then((saved) => {
       const next = saved ? { ...DEFAULT_PREFERENCES, ...JSON.parse(saved) } : DEFAULT_PREFERENCES;
       setPreferences(next);
-      setMapMode(next.defaultMapMode);
+      setMapMode(next.defaultMapMode === "friends" ? "friends" : "mine");
       setVisibility(next.defaultVisibility);
     }).catch(() => undefined);
   }, [session.user.id]);
@@ -660,7 +662,7 @@ export function HomeScreen({
   };
 
   const openSpot = useCallback((spot: Spot) => {
-    setMapMode(spot.userId === session.user.id ? "mine" : spot.visibility === "public" ? "public" : "friends");
+    setMapMode(spot.userId === session.user.id ? "mine" : "friends");
     setSelectedSpot(spot);
     setIsTopBarCollapsed(true);
     setFeedbackRating(null);
@@ -1190,8 +1192,10 @@ export function HomeScreen({
     const triggerDate = new Date(date.getTime() - preferences.reminderHours * 60 * 60 * 1000);
     if (triggerDate.getTime() <= Date.now()) return;
     const existing = await Notifications.getPermissionsAsync();
-    const status = existing.status === "granted" ? existing.status : (await Notifications.requestPermissionsAsync()).status;
-    if (status !== "granted") return;
+    const permissions = existing.granted
+      ? existing
+      : await Notifications.requestPermissionsAsync();
+    if (!permissions.granted) return;
     await Notifications.scheduleNotificationAsync({
       content: { title: "Plan reminder", body: `${spotName} is coming up soon.` },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: triggerDate },
@@ -1358,12 +1362,12 @@ export function HomeScreen({
         <MapView
           ref={mapRef}
           initialRegion={region}
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           mapType="standard"
           userInterfaceStyle={isDark ? "dark" : "light"}
           showsUserLocation
           showsMyLocationButton={false}
-          showsPointsOfInterest={false}
+          showsPointsOfInterests={false}
           customMapStyle={cleanMapStyle}
           moveOnMarkerPress={false}
           toolbarEnabled={false}
@@ -1451,7 +1455,7 @@ export function HomeScreen({
             {!isTopBarCollapsed && (
               <View>
                 <View style={isDark ? { backgroundColor: colors.surfaceMuted } : undefined} className="mt-3 flex-row rounded-2xl bg-slate-100 p-1">
-                  {(["mine", "friends", "public"] as MapMode[]).map((mode) => (
+                  {(["mine", "friends"] as MapMode[]).map((mode) => (
                     <Pressable
                       key={mode}
                       onPress={() => setMapMode(mode)}
@@ -1460,7 +1464,7 @@ export function HomeScreen({
                       <Text style={isDark ? { color: colors.text } : undefined}
                         className={`text-center text-xs font-extrabold ${mapMode === mode ? "text-teal-700" : "text-slate-500"}`}
                       >
-                        {mode === "mine" ? "Mine" : mode === "friends" ? "Friends" : "Public"}
+                        {mode === "mine" ? "Mine" : "Friends"}
                       </Text>
                     </Pressable>
                   ))}
@@ -2934,7 +2938,7 @@ export function HomeScreen({
             </KeyboardAvoidingView>
             {selectedPlan && (
               <View
-                style={StyleSheet.absoluteFillObject}
+                style={StyleSheet.absoluteFill}
                 className="justify-center bg-black/40 px-5"
               >
                 <View style={isDark ? { backgroundColor: colors.surface } : undefined} className="max-h-[88%] rounded-3xl bg-white p-5">
@@ -2973,7 +2977,7 @@ export function HomeScreen({
                             latitudeDelta: 0.008,
                             longitudeDelta: 0.008,
                           }}
-                          style={StyleSheet.absoluteFillObject}
+                          style={StyleSheet.absoluteFill}
                           scrollEnabled={false}
                           zoomEnabled={false}
                         >
@@ -3429,7 +3433,7 @@ export function HomeScreen({
                             latitudeDelta: 0.008,
                             longitudeDelta: 0.008,
                           }}
-                          style={StyleSheet.absoluteFillObject}
+                          style={StyleSheet.absoluteFill}
                           scrollEnabled={false}
                           zoomEnabled={false}
                           rotateEnabled={false}
@@ -3712,7 +3716,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
   },
   tabPage: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 4,
     paddingBottom: 74,
     backgroundColor: "white",
