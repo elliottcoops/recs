@@ -832,7 +832,12 @@ export function HomeScreen({
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.token}`,
         },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({
+          query,
+          latitude: region.latitude,
+          longitude: region.longitude,
+          radiusMiles: 25,
+        }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Venue search failed.");
